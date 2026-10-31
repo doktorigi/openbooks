@@ -7,6 +7,7 @@ Open-source small-business bookkeeping for the web — a QuickBooks alternative 
 - **Sales tax**: per-line tax rates on invoices, posted to Sales Tax Payable, with a period report
 - **Bank CSV import**: upload a statement, review, post; re-importing the same file adds nothing
   - deposits can be matched to open invoices and withdrawals to open bills (exact amounts are pre-selected), recording the payment
+  - one deposit can be split across several invoices (e.g. a Stripe payout), with any difference such as fees posted to an account
   - anything else gets a category, suggested from past transactions with the same description
 - Customers & vendors, editable chart of accounts, manual journal entries
 - Profit & Loss and Balance Sheet for any period

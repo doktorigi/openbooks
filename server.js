@@ -28,7 +28,7 @@ td input,td select{border-color:transparent}button,.btn{width:auto;background:va
 .row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:8px 0}.row label{flex:1 1 160px;color:var(--mut);font-size:13px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.cards div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
 .cards b{display:block;font-size:22px}.out{margin:0 0 0 auto}button.link{background:none;color:var(--acc);padding:0}
-.narrow{max-width:380px}.narrow label{display:block;color:var(--mut);font-size:13px;margin-bottom:12px}.err{color:var(--err)}.mut{color:var(--mut)}.ok{color:var(--acc)}
+.split{display:block;font-size:13px;margin-bottom:4px}.narrow{max-width:380px}.narrow label{display:block;color:var(--mut);font-size:13px;margin-bottom:12px}.err{color:var(--err)}.mut{color:var(--mut)}.ok{color:var(--acc)}
 @media print{nav,.noprint{display:none}body{background:#fff;color:#000}}`;
 
 const NAV = [['/', 'Overview'], ['/invoices', 'Invoices'], ['/bills', 'Bills'], ['/bank', 'Bank'], ['/contacts', 'Contacts'],
@@ -213,10 +213,33 @@ function bankPage(q) {
   ${txns.length ? h`<form method="post" action="/bank/review"><table>
     <tr><th>Date</th><th>Description</th><th>Account</th><th class="n">Amount</th><th>Category</th></tr>
     ${txns.map(t => { const d = docOpts(t); return h`<tr><td>${t.date}</td><td>${t.description}</td><td>${t.bank}</td><td class="n">${$(t.amount)}</td>
-      <td><select name="cat_${t.id}"><option value="">Decide later</option><option value="ignore">Ignore (already recorded)</option>
+      <td>${d.html ? h`<a href="/bank/${t.id}/split" class="split">Split across ${t.amount > 0 ? 'invoices' : 'bills'}…</a>` : ''}<select name="cat_${t.id}"><option value="">Decide later</option><option value="ignore">Ignore (already recorded)</option>
       ${d.html}<optgroup label="Category">${opts(cats, acctLabel, d.exact ? undefined : B.suggestCategory(db, t))}</optgroup></select></td></tr>`; })}</table>
     <button>Post</button> <span class="mut">Pre-filled with an open invoice/bill of the exact amount, else the category used last time for that description.</span></form>`
   : h`<p class="mut">Nothing to review.</p>`}`);
+}
+
+function splitPage(id) {
+  const t = db.prepare("SELECT b.*, a.name AS bank FROM bank_txns b JOIN accounts a ON a.id = b.account_id WHERE b.id = ? AND status = 'new'").get(id);
+  if (!t) return;
+  const inv = t.amount > 0, kind = inv ? 'invoice' : 'bill', list = B.openDocs(db, kind);
+  return page(`Split ${inv ? 'deposit' : 'withdrawal'}`, h`<p>${t.date} · ${t.description} · ${t.bank} · <b>${$(t.amount)}</b></p>
+  <form method="post" id="split"><table><tr><th>${inv ? 'Invoice' : 'Bill'}</th><th>${inv ? 'Customer' : 'Vendor'}</th>
+    <th>Date</th><th class="n">Due</th><th class="n">Apply</th></tr>
+  ${list.map(d => h`<tr><td>${d.number || '#' + d.id}</td><td>${d.contact}</td><td>${d.date}</td><td class="n">${$(d.total - d.paid)}</td>
+    <td><input name="amt_${d.id}" class="n" inputmode="decimal" placeholder="0.00" data-open="${((d.total - d.paid) / 100).toFixed(2)}"></td></tr>`)}
+  <tr class="tot"><td colspan="4">Difference (${inv ? 'fees, overpayment' : 'fees, discounts'}…)</td><td class="n" id="left">${$(Math.abs(t.amount))}</td></tr></table>
+  <div class="row"><label>Post the difference to<select name="remainder"><option value="">— must be zero —</option>
+    ${opts(accounts(`code NOT IN ('${B.AR}','${B.AP}') AND id <> ${t.account_id}`), acctLabel)}</select></label>
+  <button>Post</button> <a href="/bank">Cancel</a></div></form>
+  <p class="mut">Double-click an amount to apply that document's full balance.</p>
+  <script>
+  const total = ${new Raw(String(Math.abs(t.amount)))}, cents = v => Math.round(parseFloat(v.replace(/[$,]/g, '')) * 100) || 0;
+  const update = () => { const r = total - [...split.querySelectorAll('[data-open]')].reduce((s, i) => s + cents(i.value), 0);
+    left.textContent = (r < 0 ? '-$' : '$') + (Math.abs(r) / 100).toFixed(2); };
+  split.oninput = update;
+  split.ondblclick = e => { if (e.target.dataset.open) { e.target.value = e.target.dataset.open; update(); } };
+  </script>`);
 }
 
 const MSG = { password: 'Password changed.', user: 'User added.' };
@@ -298,6 +321,12 @@ async function route(req, url) {
   if (p === '/bank/import' && f) {
     const n = B.importBank(db, +f.get('account'), B.parseBankCSV(f.get('csv') ?? '', f.has('flip')));
     return { redirect: `/bank?imported=${n}` };
+  }
+  if ((m = /^\/bank\/(\d+)\/split$/.exec(p))) {
+    if (!f) return splitPage(+m[1]);
+    const allocations = [...f].filter(([k]) => k.startsWith('amt_')).map(([k, v]) => ({ doc_id: +k.slice(4), amount: B.parseMoney(v) }));
+    B.splitBankTxn(db, +m[1], allocations, +f.get('remainder') || null);
+    return { redirect: '/bank' };
   }
   if (p === '/bank/review' && f) {
     B.tx(db, () => {

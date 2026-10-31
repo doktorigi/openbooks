@@ -129,7 +129,7 @@ test('bank deposits pay invoices, withdrawals pay bills', () => {
   B.importBank(db, bank, B.parseBankCSV('Date,Description,Amount\n2026-10-05,Deposit,100.00\n2026-10-06,Deposit 2,200.00\n2026-10-07,Rent,-90\n2026-10-08,Deposit 3,1'));
   const [d1, d2, w, d3] = db.prepare('SELECT * FROM bank_txns ORDER BY id').all();
 
-  assert.throws(() => B.matchBankTxn(db, w.id, inv), /withdrawals match bills/);
+  assert.throws(() => B.matchBankTxn(db, w.id, inv), /withdrawals pay bills/);
   B.matchBankTxn(db, d1.id, inv); // partial
   assert.equal(B.openDocs(db, 'invoice')[0].paid, 10000);
   B.matchBankTxn(db, d2.id, inv);
@@ -143,6 +143,38 @@ test('bank deposits pay invoices, withdrawals pay bills', () => {
   assert.deepEqual([bal('1000'), bal(B.AR), bal(B.AP)], [21000, 0, 0]);
   // the bank txn and the invoice payment share one journal entry, so nothing is double-counted
   assert.equal(db.prepare('SELECT COUNT(*) n FROM payments p JOIN bank_txns b ON b.entry_id = p.entry_id').get().n, 3);
+});
+
+test('one deposit split across invoices, with a processor fee', () => {
+  const db = B.open();
+  const [bank, sales, fees] = ['1000', '4000', '6900'].map(c => B.accountId(db, c));
+  const cust = db.prepare("INSERT INTO contacts (name, kind) VALUES ('C', 'customer')").run().lastInsertRowid;
+  const vend = db.prepare("INSERT INTO contacts (name, kind) VALUES ('V', 'vendor')").run().lastInsertRowid;
+  const invoice = amount => B.createDoc(db, { kind: 'invoice', contact_id: cust, date: '2026-10-01', lines: [{ account_id: sales, amount }] });
+  const [a, b, c] = [30000, 20000, 10000].map(invoice);
+  const bill = B.createDoc(db, { kind: 'bill', contact_id: vend, date: '2026-10-01', lines: [{ account_id: fees, amount: 500 }] });
+  B.importBank(db, bank, B.parseBankCSV('Date,Description,Amount\n2026-10-05,Batch,450.00\n2026-10-06,Stripe,97.00'));
+  const [batch, stripe] = db.prepare('SELECT id FROM bank_txns ORDER BY id').all().map(t => t.id);
+
+  const split = (id, allocs, rem) => B.splitBankTxn(db, id, allocs.map(([doc_id, amount]) => ({ doc_id, amount })), rem);
+  assert.throws(() => split(batch, [[a, 30000], [b, 10000]]), /pick an account for the \$50\.00/);
+  assert.throws(() => split(batch, [[a, 30001], [b, 14999]]), /between/);
+  assert.throws(() => split(batch, [[a, 20000], [a, 25000]]), /only once/);
+  assert.throws(() => split(batch, [[a, 30000], [bill, 500]], fees), /withdrawals pay bills/);
+  assert.throws(() => split(batch, [[a, 30000]], bank), /other than the bank/);
+  assert.throws(() => split(batch, []), /at least one/);
+
+  split(batch, [[a, 30000], [b, 15000]]); // b stays partly open
+  assert.deepEqual([a, b].map(id => B.doc(db, id).total - B.doc(db, id).paid), [0, 5000]);
+  split(stripe, [[c, 10000]], fees); // $97 landed for a $100 invoice → $3 fee
+  assert.equal(B.doc(db, c).paid, 10000);
+  assert.throws(() => split(stripe, [[b, 100]], fees), /already/);
+
+  const bal = code => B.balances(db).find(x => x.code === code).amount;
+  assert.deepEqual([bal('1000'), bal(B.AR), bal('6900')], [54700, 5000, 300 + 500]);
+  assert.equal(db.prepare('SELECT COUNT(DISTINCT entry_id) n FROM payments').get().n, 2); // 3 payments, 2 entries
+  const bs = B.balanceSheet(db, '2026-12-31');
+  assert.equal(bs.totals.asset, bs.totals.liability + bs.totals.equity);
 });
 
 test('money parsing', () => {

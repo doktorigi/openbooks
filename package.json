@@ -1,6 +1,6 @@
 {
   "name": "openbooks",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Open-source small-business bookkeeping for the web. Zero dependencies.",
   "license": "MIT",
   "type": "module",

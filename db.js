@@ -281,16 +281,39 @@ export function postBankTxn(db, id, category) {
   });
 }
 
-// A deposit pays an open invoice, a withdrawal pays an open bill; the payment's entry is the txn's entry.
-export function matchBankTxn(db, id, doc_id) {
+// A deposit pays open invoices, a withdrawal pays open bills, in one entry that every payment row shares.
+// Whatever isn't allocated (e.g. a card processor's fee) goes to remainder_account.
+export function splitBankTxn(db, id, allocations, remainder_account) {
   const t = db.prepare("SELECT * FROM bank_txns WHERE id = ? AND status = 'new'").get(id);
   if (!t) throw bad('That transaction was already handled');
-  if (doc(db, doc_id)?.kind !== (t.amount > 0 ? 'invoice' : 'bill')) throw bad('Deposits match invoices; withdrawals match bills');
+  const inv = t.amount > 0, amt = Math.abs(t.amount);
+  allocations = allocations.filter(a => a.amount);
+  if (!allocations.length) throw bad(`Allocate the ${inv ? 'deposit' : 'withdrawal'} to at least one ${inv ? 'invoice' : 'bill'}`);
+  if (new Set(allocations.map(a => a.doc_id)).size < allocations.length) throw bad('Each document can appear only once');
+  for (const a of allocations) {
+    const d = doc(db, a.doc_id);
+    if (d?.kind !== (inv ? 'invoice' : 'bill')) throw bad('Deposits pay invoices; withdrawals pay bills');
+    if (!(Number.isSafeInteger(a.amount) && a.amount > 0 && a.amount <= d.total - d.paid))
+      throw bad(`${d.number || '#' + d.id}: amount must be between $0.01 and ${fmt(d.total - d.paid)}`);
+  }
+  const allocated = allocations.reduce((s, a) => s + a.amount, 0), r = amt - allocated;
+  if (r && !remainder_account) throw bad(`Allocated ${fmt(allocated)} of ${fmt(amt)}; pick an account for the ${fmt(Math.abs(r))} difference`);
+  if (r && remainder_account === t.account_id) throw bad('The difference needs an account other than the bank account');
   tx(db, () => {
-    const entry = pay(db, doc_id, { date: t.date, amount: Math.abs(t.amount), account_id: t.account_id });
+    const entry = post(db, t.date, t.description, [
+      side(inv, t.account_id, amt),
+      side(!inv, accountId(db, inv ? AR : AP), allocated),
+      ...(r ? [side(inv ? r < 0 : r > 0, remainder_account, Math.abs(r))] : []),
+    ]);
+    const ins = db.prepare('INSERT INTO payments (doc_id, date, amount, entry_id) VALUES (?, ?, ?, ?)');
+    for (const a of allocations) ins.run(a.doc_id, t.date, a.amount, entry);
     db.prepare("UPDATE bank_txns SET status = 'posted', entry_id = ? WHERE id = ?").run(entry, id);
   });
 }
+
+// One-document match: the whole amount pays that invoice or bill.
+export const matchBankTxn = (db, id, doc_id) => splitBankTxn(db, id, [{ doc_id,
+  amount: Math.abs(db.prepare('SELECT amount FROM bank_txns WHERE id = ?').get(id)?.amount ?? 0) }]);
 
 export const openDocs = (db, kind) => docs(db, kind).filter(d => d.paid < d.total).reverse(); // oldest first
 
