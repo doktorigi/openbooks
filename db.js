@@ -52,6 +52,11 @@ CREATE INDEX doc_lines_doc ON doc_lines (doc_id);
 CREATE INDEX payments_doc ON payments (doc_id);
 CREATE INDEX payments_entry ON payments (entry_id);
 CREATE INDEX bank_txns_status ON bank_txns (status, date);
+`, `
+CREATE TABLE reconciliations (id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts,
+  statement_date TEXT NOT NULL, ending_balance INTEGER NOT NULL, created_at TEXT NOT NULL);
+ALTER TABLE lines ADD COLUMN reconciliation_id INTEGER REFERENCES reconciliations;
+CREATE INDEX lines_reconcile ON lines (account_id, reconciliation_id);
 `];
 
 export function open(file = ':memory:') {
@@ -81,6 +86,13 @@ export function parseMoney(s) {
   const c = Number(m[1]) * 100 + Number((m[2] || '').padEnd(2, '0'));
   if (!Number.isSafeInteger(c)) throw bad('Amount too large');
   return c;
+}
+
+export function parseSignedMoney(s) {
+  s = String(s ?? '').trim();
+  if (!s) throw bad('Amount is required');
+  const neg = s.startsWith('-');
+  return (neg ? -1 : 1) * parseMoney(neg ? s.slice(1) : s);
 }
 
 // ponytail: USD only; take a currency setting when someone needs another one.
@@ -208,6 +220,93 @@ export function taxReport(db, from, to) {
     WHERE d.date BETWEEN ? AND ? GROUP BY r.id ORDER BY r.name`).all(from, to);
 }
 
+const emptyBuckets = () => ({ current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0, total: 0 });
+const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
+const shiftDays = (iso, delta) => new Date(Date.parse(iso + 'T00:00:00Z') + delta * 864e5).toISOString().slice(0, 10);
+
+// Historical A/R (invoice) and A/P (bill) aging as of `asOf`, counting only docs and payments on or before `asOf`.
+export function agingReport(db, kind, asOf) {
+  if (!['invoice', 'bill'].includes(kind)) throw bad('Unknown document kind');
+  isDate(asOf);
+  const raw = db.prepare(`SELECT d.*, c.name AS contact,
+    (SELECT SUM(amount + tax) FROM doc_lines WHERE doc_id = d.id) AS total,
+    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE doc_id = d.id AND date <= ?) AS paid
+    FROM docs d JOIN contacts c ON c.id = d.contact_id
+    WHERE d.kind = ? AND d.date <= ? ORDER BY d.date, d.id`).all(asOf, kind, asOf);
+  const byContact = new Map(), totals = emptyBuckets(), docs = [];
+  for (const d of raw) {
+    const balance = d.total - d.paid;
+    if (balance <= 0) continue;
+    const days_overdue = Math.max(0, daysBetween(d.due || d.date, asOf));
+    const bucket = days_overdue <= 0 ? 'current' : days_overdue <= 30 ? 'd1_30'
+      : days_overdue <= 60 ? 'd31_60' : days_overdue <= 90 ? 'd61_90' : 'd90_plus';
+    docs.push({ ...d, balance, days_overdue, bucket });
+    const row = byContact.get(d.contact_id) ?? { contact_id: d.contact_id, contact: d.contact, ...emptyBuckets() };
+    row[bucket] += balance; row.total += balance;
+    totals[bucket] += balance; totals.total += balance;
+    byContact.set(d.contact_id, row);
+  }
+  docs.sort((a, b) => b.days_overdue - a.days_overdue || a.date.localeCompare(b.date) || a.id - b.id);
+  const contacts = [...byContact.values()].sort((a, b) => b.total - a.total || a.contact.localeCompare(b.contact));
+  return { asOf, kind, contacts, docs, totals };
+}
+
+// Tax-aware Safe-to-Spend cash, operating runway, "Can I Afford It?" simulator, and customer payment velocity.
+export function cashRunway(db, { asOf, lookbackDays = 90, taxRate = 25000, oneTime = 0, monthly = 0 } = {}) {
+  isDate(asOf);
+  if (!(lookbackDays > 0 && lookbackDays <= 3650)) throw bad('Lookback must be between 1 and 3650 days');
+  if (!(Number.isSafeInteger(taxRate) && taxRate >= 0 && taxRate <= 100000)) throw bad('Tax reserve rate must be 0–100%');
+  if (![oneTime, monthly].every(n => Number.isSafeInteger(n) && n >= 0)) throw bad('Scenario amounts must be non-negative');
+
+  const bals = balances(db, undefined, asOf);
+  const liquid_cash = sum(bals.filter(a => a.type === 'asset' && a.code !== AR && a.code < '1500'));
+  const sales_tax_owed = Math.max(0, bals.find(a => a.code === TAX)?.amount ?? 0);
+  const ytd_net = profitLoss(db, `${asOf.slice(0, 4)}-01-01`, asOf).net;
+  const income_tax_reserve = ytd_net > 0 ? Math.round(ytd_net * taxRate / 100000) : 0;
+  const ar = agingReport(db, 'invoice', asOf), ap = agingReport(db, 'bill', asOf);
+  const open_ar = ar.totals.total, open_ap = ap.totals.total;
+  const reserved = sales_tax_owed + income_tax_reserve + open_ap;
+  const safe_to_spend = liquid_cash - reserved;
+
+  const from = shiftDays(asOf, -(lookbackDays - 1));
+  const period_expenses = sum(profitLoss(db, from, asOf).expense);
+  const monthly_burn = Math.round(period_expenses * 30 / lookbackDays);
+  const months = (pool, burn) => burn > 0 ? Math.round(Math.max(0, pool) / burn * 10) / 10 : null;
+  const runway_months = months(safe_to_spend, monthly_burn);
+  const expected_runway_months = months(safe_to_spend + open_ar, monthly_burn);
+
+  const after_safe_to_spend = safe_to_spend - oneTime - monthly;
+  const after_burn = monthly_burn + monthly;
+  const after_runway_months = months(safe_to_spend - oneTime, after_burn);
+  const after_expected_runway_months = months(safe_to_spend + open_ar - oneTime, after_burn);
+  const verdict = after_safe_to_spend < 0 ? 'shortfall'
+    : after_burn > 0 && after_safe_to_spend < after_burn * 3 ? 'caution' : 'safe';
+
+  const paidRows = db.prepare(`SELECT d.contact_id, c.name AS contact, d.date AS issued, p.date AS paid_on, p.amount
+    FROM payments p JOIN docs d ON d.id = p.doc_id JOIN contacts c ON c.id = d.contact_id
+    WHERE d.kind = 'invoice' AND p.date <= ?`).all(asOf);
+  const byCust = new Map();
+  for (const r of paidRows) {
+    const days = Math.max(0, daysBetween(r.issued, r.paid_on));
+    const cur = byCust.get(r.contact_id) ?? { contact_id: r.contact_id, contact: r.contact, paid_amount: 0, weighted_days: 0, payments: 0 };
+    cur.paid_amount += r.amount; cur.weighted_days += days * r.amount; cur.payments++;
+    byCust.set(r.contact_id, cur);
+  }
+  const openByCust = new Map(ar.contacts.map(c => [c.contact_id, c.total]));
+  const velocity = [...byCust.values()].map(c => ({
+    contact_id: c.contact_id, contact: c.contact, payments: c.payments,
+    avg_days: Math.round(c.weighted_days / c.paid_amount),
+    open_balance: openByCust.get(c.contact_id) ?? 0,
+  })).sort((a, b) => a.avg_days - b.avg_days || a.contact.localeCompare(b.contact));
+
+  return {
+    asOf, lookbackDays, taxRate, liquid_cash, sales_tax_owed, ytd_net, income_tax_reserve,
+    open_ap, open_ar, reserved, safe_to_spend, monthly_burn, runway_months, expected_runway_months,
+    scenario: { oneTime, monthly, after_safe_to_spend, after_burn, after_runway_months, after_expected_runway_months, verdict },
+    velocity,
+  };
+}
+
 // --- Bank CSV import ---
 
 export function parseCSV(text) {
@@ -289,9 +388,14 @@ export function parseBankCSV(text, flip = false) {
   }).filter(t => t.amount);
 }
 
-export function importBank(db, account_id, txns) {
-  const a = db.prepare('SELECT code, type FROM accounts WHERE id = ?').get(account_id);
+function bankAccount(db, account_id) {
+  const a = db.prepare('SELECT * FROM accounts WHERE id = ?').get(account_id);
   if (!a || !['asset', 'liability'].includes(a.type) || [AR, AP, TAX].includes(a.code)) throw bad('Pick a bank or credit card account');
+  return a;
+}
+
+export function importBank(db, account_id, txns) {
+  bankAccount(db, account_id);
   // Fingerprint includes the occurrence number so two identical coffees on one day both import, once.
   const seen = new Map(), ins = db.prepare('INSERT OR IGNORE INTO bank_txns (account_id, date, description, amount, fp) VALUES (?, ?, ?, ?, ?)');
   return tx(db, () => txns.reduce((n, t) => {
@@ -299,6 +403,47 @@ export function importBank(db, account_id, txns) {
     seen.set(k, i);
     return n + Number(ins.run(account_id, t.date, t.description, t.amount, `${k}|${i}`).changes);
   }, 0));
+}
+
+// Bank & credit card statement reconciliation: clears ledger lines against a statement ending balance.
+export function reconciliationState(db, account_id, statement_date) {
+  const a = bankAccount(db, account_id), sign = DEBIT_NORMAL.has(a.type) ? 1 : -1;
+  isDate(statement_date);
+  const beginning = sign * db.prepare(
+    'SELECT COALESCE(SUM(debit - credit), 0) AS b FROM lines WHERE account_id = ? AND reconciliation_id IS NOT NULL'
+  ).get(account_id).b;
+  const uncleared = db.prepare(`SELECT l.id, l.entry_id, e.date, e.memo, l.debit, l.credit
+    FROM lines l JOIN entries e ON e.id = l.entry_id
+    WHERE l.account_id = ? AND l.reconciliation_id IS NULL AND e.date <= ?
+    ORDER BY e.date, e.id, l.id`).all(account_id, statement_date)
+    .map(l => ({ ...l, amount: sign * (l.debit - l.credit) }));
+  const history = db.prepare(`SELECT r.*, (SELECT COUNT(*) FROM lines WHERE reconciliation_id = r.id) AS count
+    FROM reconciliations r WHERE r.account_id = ? ORDER BY r.statement_date DESC, r.id DESC`).all(account_id);
+  return { account: a, statement_date, beginning, uncleared, history };
+}
+
+export function reconcile(db, { account_id, statement_date, ending_balance, line_ids }) {
+  const { beginning, uncleared } = reconciliationState(db, account_id, statement_date);
+  if (!Number.isSafeInteger(ending_balance)) throw bad('Invalid ending balance');
+  const ids = [...new Set((line_ids ?? []).map(Number).filter(Boolean))];
+  if (!ids.length) throw bad('Select at least one transaction to reconcile');
+  const byId = new Map(uncleared.map(l => [l.id, l]));
+  let cleared = 0;
+  for (const id of ids) {
+    const l = byId.get(id);
+    if (!l) throw bad('All selected lines must be unreconciled transactions on or before the statement date');
+    cleared += l.amount;
+  }
+  const clearedBalance = beginning + cleared, diff = ending_balance - clearedBalance;
+  if (diff !== 0) throw bad(`Statement balance ${fmt(ending_balance)} ≠ cleared balance ${fmt(clearedBalance)} (difference ${fmt(diff)})`);
+  return tx(db, () => {
+    const recId = db.prepare(
+      'INSERT INTO reconciliations (account_id, statement_date, ending_balance, created_at) VALUES (?, ?, ?, ?)'
+    ).run(account_id, statement_date, ending_balance, new Date().toISOString().slice(0, 10)).lastInsertRowid;
+    const upd = db.prepare('UPDATE lines SET reconciliation_id = ? WHERE id = ? AND reconciliation_id IS NULL');
+    for (const id of ids) if (!upd.run(recId, id).changes) throw bad('Transaction was already reconciled');
+    return recId;
+  });
 }
 
 // Money in: Dr bank, Cr category. Money out: Dr category, Cr bank. 'ignore' just hides it.

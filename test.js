@@ -228,3 +228,113 @@ test('QuickBooks contacts are reviewed and imported without duplicates or ledger
   assert.throws(() => B.importQuickBooksContacts(db, 'customer', [{ name: 'New' }, { name: '' }]), /required/);
   assert.equal(db.prepare("SELECT COUNT(*) n FROM contacts WHERE name = 'New'").get().n, 0);
 });
+
+test('bank and credit card statement reconciliation locks cleared lines and carries beginning balance', () => {
+  const db = B.open();
+  const [bank, card, ar, equity, rent, supplies] = ['1000', '2100', '1200', '3000', '6000', '6200'].map(c => B.accountId(db, c));
+  B.post(db, '2026-09-01', 'Seed checking', [{ account_id: bank, debit: 100000, credit: 0 }, { account_id: equity, debit: 0, credit: 100000 }]);
+  B.post(db, '2026-09-15', 'September rent', [{ account_id: rent, debit: 30000, credit: 0 }, { account_id: bank, debit: 0, credit: 30000 }]);
+  B.post(db, '2026-10-05', 'October rent', [{ account_id: rent, debit: 30000, credit: 0 }, { account_id: bank, debit: 0, credit: 30000 }]);
+
+  assert.throws(() => B.reconciliationState(db, ar, '2026-09-30'), /bank or credit card/);
+  const sep = B.reconciliationState(db, bank, '2026-09-30');
+  assert.equal(sep.beginning, 0);
+  assert.equal(sep.uncleared.length, 2); // Oct 5 is excluded by statement date
+
+  assert.throws(() => B.reconcile(db, { account_id: bank, statement_date: '2026-09-30', ending_balance: 70000, line_ids: [] }), /at least one/);
+  assert.throws(() => B.reconcile(db, { account_id: bank, statement_date: '2026-09-30', ending_balance: 69999, line_ids: sep.uncleared.map(l => l.id) }), /≠ cleared balance/);
+
+  B.reconcile(db, { account_id: bank, statement_date: '2026-09-30', ending_balance: 70000, line_ids: sep.uncleared.map(l => l.id) });
+  // Cannot re-reconcile already cleared lines
+  assert.throws(() => B.reconcile(db, { account_id: bank, statement_date: '2026-09-30', ending_balance: 70000, line_ids: sep.uncleared.map(l => l.id) }), /unreconciled/);
+
+  const oct = B.reconciliationState(db, bank, '2026-10-31');
+  assert.equal(oct.beginning, 70000);
+  assert.equal(oct.uncleared.length, 1);
+  assert.equal(oct.history.length, 1);
+  assert.equal(oct.history[0].count, 2);
+  B.reconcile(db, { account_id: bank, statement_date: '2026-10-31', ending_balance: 40000, line_ids: [oct.uncleared[0].id] });
+  assert.equal(B.reconciliationState(db, bank, '2026-10-31').beginning, 40000);
+
+  // Credit card (liability): charges increase balance, payments decrease it
+  B.post(db, '2026-10-10', 'Paper', [{ account_id: supplies, debit: 4500, credit: 0 }, { account_id: card, debit: 0, credit: 4500 }]);
+  const cc = B.reconciliationState(db, card, '2026-10-31');
+  assert.equal(cc.uncleared[0].amount, 4500);
+  B.reconcile(db, { account_id: card, statement_date: '2026-10-31', ending_balance: 4500, line_ids: [cc.uncleared[0].id] });
+  assert.equal(B.parseSignedMoney('-$25.50'), -2550);
+  assert.throws(() => B.parseSignedMoney(''), /required/);
+});
+
+test('historical A/R and A/P aging buckets open balances as of any date', () => {
+  const db = B.open();
+  const [bank, sales, rent] = ['1000', '4000', '6000'].map(c => B.accountId(db, c));
+  const custA = db.prepare("INSERT INTO contacts (name, kind) VALUES ('Alpha', 'customer')").run().lastInsertRowid;
+  const custB = db.prepare("INSERT INTO contacts (name, kind) VALUES ('Beta', 'customer')").run().lastInsertRowid;
+  const vend = db.prepare("INSERT INTO contacts (name, kind) VALUES ('Landlord', 'vendor')").run().lastInsertRowid;
+
+  const invCurrent = B.createDoc(db, { kind: 'invoice', contact_id: custA, number: 'I-1', date: '2026-10-10', due: '2026-11-09', lines: [{ account_id: sales, amount: 10000 }] });
+  const inv20 = B.createDoc(db, { kind: 'invoice', contact_id: custA, number: 'I-2', date: '2026-09-01', due: '2026-10-01', lines: [{ account_id: sales, amount: 25000 }] });
+  const inv45 = B.createDoc(db, { kind: 'invoice', contact_id: custB, number: 'I-3', date: '2026-08-07', due: '2026-09-06', lines: [{ account_id: sales, amount: 40000 }] });
+  const inv100 = B.createDoc(db, { kind: 'invoice', contact_id: custB, number: 'I-4', date: '2026-06-13', due: '2026-07-13', lines: [{ account_id: sales, amount: 15000 }] });
+  const bill70 = B.createDoc(db, { kind: 'bill', contact_id: vend, number: 'B-1', date: '2026-08-01', due: '2026-08-12', lines: [{ account_id: rent, amount: 80000 }] });
+
+  // Paid on Oct 25: still open as of Oct 21, closed as of Oct 31
+  B.pay(db, invCurrent, { date: '2026-10-25', amount: 10000, account_id: bank });
+  B.pay(db, inv20, { date: '2026-10-05', amount: 5000, account_id: bank }); // $200 left
+
+  const mid = B.agingReport(db, 'invoice', '2026-10-21');
+  assert.equal(mid.totals.current, 10000);
+
+  const oct = B.agingReport(db, 'invoice', '2026-10-21');
+  assert.equal(oct.docs.length, 4);
+  const end = B.agingReport(db, 'invoice', '2026-10-31');
+  assert.deepEqual(end.totals, { current: 0, d1_30: 20000, d31_60: 40000, d61_90: 0, d90_plus: 15000, total: 75000 });
+  assert.equal(end.contacts[0].contact, 'Beta');
+  assert.equal(end.contacts[0].total, 55000);
+
+  const ap = B.agingReport(db, 'bill', '2026-10-21');
+  assert.deepEqual(ap.totals, { current: 0, d1_30: 0, d31_60: 0, d61_90: 80000, d90_plus: 0, total: 80000 });
+});
+
+test('safe-to-spend cash runway reserves sales tax, income tax, and unpaid bills and simulates spending', () => {
+  const db = B.open();
+  const [bank, equity, sales, rent] = ['1000', '3000', '4000', '6000'].map(c => B.accountId(db, c));
+  const cust = db.prepare("INSERT INTO contacts (name, kind) VALUES ('FastCo', 'customer')").run().lastInsertRowid;
+  const vend = db.prepare("INSERT INTO contacts (name, kind) VALUES ('HostCo', 'vendor')").run().lastInsertRowid;
+  const nj = db.prepare("INSERT INTO tax_rates (name, rate) VALUES ('NJ', 10000)").run().lastInsertRowid; // 10%
+
+  B.post(db, '2026-08-01', 'Capital', [{ account_id: bank, debit: 1000000, credit: 0 }, { account_id: equity, debit: 0, credit: 1000000 }]); // $10,000
+  const invPaid = B.createDoc(db, { kind: 'invoice', contact_id: cust, date: '2026-09-01', due: '2026-10-01',
+    lines: [{ account_id: sales, amount: 1000000, tax_rate_id: nj }] }); // $10,000 + $1,000 tax
+  B.pay(db, invPaid, { date: '2026-09-11', amount: 1100000, account_id: bank }); // paid in 10 days -> bank = $21,000
+  B.createDoc(db, { kind: 'invoice', contact_id: cust, date: '2026-10-15', due: '2026-11-14',
+    lines: [{ account_id: sales, amount: 200000 }] }); // $2,000 open A/R (no tax)
+  const billPaid = B.createDoc(db, { kind: 'bill', contact_id: vend, date: '2026-09-01', due: '2026-09-15',
+    lines: [{ account_id: rent, amount: 300000 }] }); // $3,000 paid expense
+  B.pay(db, billPaid, { date: '2026-09-05', amount: 300000, account_id: bank }); // bank = $18,000
+  B.createDoc(db, { kind: 'bill', contact_id: vend, date: '2026-10-10', due: '2026-11-10',
+    lines: [{ account_id: rent, amount: 300000 }] }); // $3,000 open A/P; total 90d expense = $6,000 -> $2,000/mo burn
+
+  // YTD net income = $12,000 sales - $6,000 expense = $6,000; 25% income tax reserve = $1,500
+  // Liquid cash = $18,000; reserved = $1,000 sales tax + $1,500 income tax + $3,000 open A/P = $5,500 -> safe_to_spend = $12,500
+  const r = B.cashRunway(db, { asOf: '2026-10-31', taxRate: 25000, oneTime: 250000, monthly: 50000 });
+  assert.equal(r.liquid_cash, 1800000);
+  assert.equal(r.sales_tax_owed, 100000);
+  assert.equal(r.ytd_net, 600000);
+  assert.equal(r.income_tax_reserve, 150000);
+  assert.equal(r.open_ap, 300000);
+  assert.equal(r.open_ar, 200000);
+  assert.equal(r.safe_to_spend, 1250000);
+  assert.equal(r.monthly_burn, 200000);
+  assert.equal(r.runway_months, 6.3);
+  assert.equal(r.expected_runway_months, 7.3);
+  assert.equal(r.scenario.after_safe_to_spend, 950000); // $12,500 - $2,500 - $500 = $9,500 >= 3 * $2,500
+  assert.equal(r.scenario.after_burn, 250000);
+  assert.equal(r.scenario.after_runway_months, 4);
+  assert.equal(r.scenario.verdict, 'safe');
+  assert.equal(r.velocity[0].avg_days, 10);
+  assert.equal(r.velocity[0].open_balance, 200000);
+
+  assert.equal(B.cashRunway(db, { asOf: '2026-10-31', oneTime: 800000 }).scenario.verdict, 'caution');
+  assert.equal(B.cashRunway(db, { asOf: '2026-10-31', oneTime: 1300000 }).scenario.verdict, 'shortfall');
+});

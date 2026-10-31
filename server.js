@@ -15,16 +15,17 @@ const h = (s, ...v) => new Raw(s.reduce((o, str, i) => o + esc(v[i - 1]) + str))
 const CSS = `
 :root{--bg:#f4f6f3;--fg:#172b25;--mut:#697d73;--card:#fff;--line:#dfe8e1;--acc:#167353;--err:#b3261e;--shadow:0 8px 30px rgba(27,62,45,.05)}
 @media (prefers-color-scheme:dark){:root{--bg:#101b17;--fg:#e8f2eb;--mut:#9baea3;--card:#192822;--line:#30443a;--acc:#62c99b;--err:#f2867e;--shadow:none}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,sans-serif}a{color:var(--acc);text-underline-offset:3px}nav{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:14px max(24px,calc((100% - 1200px)/2));background:var(--card);border-bottom:1px solid var(--line)}nav b{font-size:19px;letter-spacing:-.7px;color:var(--fg);margin-right:25px}nav b:before{content:'?';display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#167353;color:white;margin-right:9px}nav a{padding:7px 9px;color:var(--mut);font-size:13px;font-weight:600;text-decoration:none;border-radius:7px}nav a:hover,nav a:focus-visible{background:var(--bg);color:var(--acc)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,sans-serif}a{color:var(--acc);text-underline-offset:3px}nav{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:14px max(24px,calc((100% - 1200px)/2));background:var(--card);border-bottom:1px solid var(--line)}nav b{font-size:19px;letter-spacing:-.7px;color:var(--fg);margin-right:25px}nav b:before{content:'OB';font-size:13px;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#167353;color:white;margin-right:9px}nav a{padding:7px 9px;color:var(--mut);font-size:13px;font-weight:600;text-decoration:none;border-radius:7px}nav a:hover,nav a:focus-visible{background:var(--bg);color:var(--acc)}
 main{max-width:1200px;margin:0 auto;padding:38px 24px 80px}h1{font-size:32px;letter-spacing:-1.2px;line-height:1.2;margin:0 0 24px}h2{font-size:18px;letter-spacing:-.3px;margin:32px 0 12px}p{line-height:1.6}table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 0;box-shadow:var(--shadow)}th,td{padding:13px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}tr:last-child td,tr:last-child th{border-bottom:0}th{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:650}.n{text-align:right;font-variant-numeric:tabular-nums}.tot td{font-weight:700}.hd th{color:var(--fg);padding-top:18px}
 input.inline{width:auto;margin-right:6px}textarea{display:block;margin-top:5px}input,select,button,textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);width:100%}input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:1px}td input,td select{border-color:var(--line)}button,.btn{width:auto;background:#167353;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-block;font-weight:650}button:hover,.btn:hover{background:#105a40}.row{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:12px 0}.row label{flex:1 1 160px;color:var(--mut);font-size:13px;font-weight:600}.row label input,.row label select{margin-top:5px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.cards div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow)}.cards b{display:block;font-size:28px;letter-spacing:-1px;margin-top:10px}.out{margin:0 0 0 auto}button.link{background:none;color:var(--acc);padding:8px}.split{display:block;font-size:13px;margin-bottom:4px}.narrow{max-width:440px;margin:70px auto;padding:32px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.narrow label{display:block;color:var(--mut);font-size:13px;margin-bottom:16px}.narrow input{margin-top:5px}.err{color:var(--err)}.mut{color:var(--mut)}.ok{color:var(--acc)}.intro{max-width:720px;color:var(--mut);margin-top:-12px}.panel{padding:22px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin:18px 0}.panel h2{margin-top:0}.eyebrow{color:var(--acc);text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;margin-bottom:8px}.notice{background:var(--bg);border-left:3px solid var(--acc);padding:12px 16px;border-radius:4px}
 @media(max-width:700px){nav{padding:12px 16px}nav b{width:100%;margin-bottom:4px}nav a{padding:5px 7px}main{padding:26px 16px 60px}h1{font-size:27px}table{display:block;overflow-x:auto}th,td{padding:10px;min-width:90px}.out{margin-left:0}.narrow{margin:30px 16px}}
 @media print{nav,.noprint{display:none}body{background:#fff;color:#000}main{padding:0}table{box-shadow:none}}
 `;
 
-const NAV = [['/', 'Overview'], ['/invoices', 'Invoices'], ['/bills', 'Bills'], ['/bank', 'Bank'], ['/contacts', 'Contacts'],
-  ['/accounts', 'Accounts'], ['/journal', 'Journal'], ['/reports/pl', 'Profit & Loss'], ['/reports/bs', 'Balance Sheet'],
-  ['/tax', 'Sales tax'], ['/import', 'Import'], ['/settings', 'Settings']];
+const NAV = [['/', 'Overview'], ['/invoices', 'Invoices'], ['/bills', 'Bills'], ['/bank', 'Bank'], ['/reconcile', 'Reconcile'],
+  ['/contacts', 'Contacts'], ['/accounts', 'Accounts'], ['/journal', 'Journal'], ['/reports/pl', 'Profit & Loss'],
+  ['/reports/bs', 'Balance Sheet'], ['/reports/aging', 'Aging'], ['/runway', 'Safe to Spend'], ['/tax', 'Sales tax'],
+  ['/import', 'Import'], ['/settings', 'Settings']];
 const page = (title, body, bare = false) => h`<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · OpenBooks</title><style>${new Raw(CSS)}</style>
 <nav><b>OpenBooks</b>${bare ? '' : h`${NAV.map(([u, t]) => h`<a href="${u}">${t}</a>`)}
@@ -38,14 +39,15 @@ const status = d => d.paid >= d.total ? 'Paid' : d.due && d.due < day() ? 'Overd
 const empty = (rows, cols) => rows.length ? '' : h`<tr><td colspan="${cols}" class="mut">Nothing yet.</td></tr>`;
 
 function home() {
-  const y = day().slice(0, 4), pl = B.profitLoss(db, `${y}-01-01`, day());
+  const y = day().slice(0, 4), pl = B.profitLoss(db, `${y}-01-01`, day()), rw = B.cashRunway(db, { asOf: day() });
   const open = k => B.docs(db, k).reduce((s, d) => s + d.total - d.paid, 0);
   const cash = B.balances(db).filter(a => a.type === 'asset' && a.code !== B.AR && a.code < '1500');
   return page('Overview', h`<p class="eyebrow">Your business at a glance</p><p class="intro">A clear view of your books, all in one place.</p><div class="cards">
   <div><span class="mut">Unpaid invoices</span><b>${$(open('invoice'))}</b></div>
   <div><span class="mut">Unpaid bills</span><b>${$(open('bill'))}</b></div>
-  <div><span class="mut">Net income ${y} to date</span><b>${$(pl.net)}</b></div></div>
-  <p class="row"><a class="btn" href="/invoices/new">New invoice</a><a class="btn" href="/bills/new">New bill</a></p>
+  <div><span class="mut">Net income ${y} to date</span><b>${$(pl.net)}</b></div>
+  <div><span class="mut"><a href="/runway">Safe to spend</a></span><b class="${rw.safe_to_spend < 0 ? 'err' : 'ok'}">${$(rw.safe_to_spend)}</b></div></div>
+  <p class="row"><a class="btn" href="/invoices/new">New invoice</a><a class="btn" href="/bills/new">New bill</a><a class="btn" href="/reconcile">Reconcile bank</a><a class="btn" href="/runway">Safe-to-spend simulator</a></p>
   <h2>Bank accounts</h2><table>${cash.map(a => h`<tr><td>${acctLabel(a)}</td><td class="n">${$(a.amount)}</td></tr>`)}</table>`);
 }
 
@@ -164,6 +166,146 @@ function bsPage(q) {
   <p class="${ok ? 'ok' : 'err'}">${ok ? 'Balanced.' : 'Out of balance — please report a bug.'}</p>`);
 }
 
+function agingSection(title, who, base, r) {
+  const t = r.totals;
+  return h`<h2>${title}</h2>
+  <table><tr><th>${who}</th><th class="n">Current</th><th class="n">1–30 days</th><th class="n">31–60 days</th><th class="n">61–90 days</th><th class="n">90+ days</th><th class="n">Total</th></tr>
+  ${r.contacts.map(c => h`<tr><td>${c.contact}</td><td class="n">${$(c.current)}</td><td class="n">${$(c.d1_30)}</td>
+    <td class="n">${$(c.d31_60)}</td><td class="n">${$(c.d61_90)}</td><td class="n">${$(c.d90_plus)}</td><td class="n">${$(c.total)}</td></tr>`)}
+  ${r.contacts.length ? h`<tr class="tot"><td>Total</td><td class="n">${$(t.current)}</td><td class="n">${$(t.d1_30)}</td>
+    <td class="n">${$(t.d31_60)}</td><td class="n">${$(t.d61_90)}</td><td class="n">${$(t.d90_plus)}</td><td class="n">${$(t.total)}</td></tr>` : empty(r.contacts, 7)}</table>
+  ${r.docs.length ? h`<table><tr><th>No.</th><th>${who}</th><th>Date</th><th>Due</th><th>Age</th><th class="n">Balance</th></tr>
+    ${r.docs.map(d => h`<tr><td><a href="/${base}/${d.id}">${d.number || '#' + d.id}</a></td><td>${d.contact}</td><td>${d.date}</td>
+      <td>${d.due || '—'}</td><td class="${d.days_overdue ? 'err' : 'mut'}">${d.days_overdue ? `${d.days_overdue}d overdue` : 'Current'}</td>
+      <td class="n">${$(d.balance)}</td></tr>`)}</table>` : ''}`;
+}
+
+function agingPage(q) {
+  const asOf = B.isDate(q.get('as_of') || day());
+  const ar = B.agingReport(db, 'invoice', asOf), ap = B.agingReport(db, 'bill', asOf);
+  return page('A/R & A/P Aging', h`<p class="intro">Unpaid customer invoices and vendor bills grouped by how long they have been past due.</p>
+  <form class="row noprint"><label>As of<input type="date" name="as_of" value="${asOf}"></label><button>Run</button></form>
+  <div class="cards">
+    <div><span class="mut">Open receivables (A/R)</span><b>${$(ar.totals.total)}</b></div>
+    <div><span class="mut">Overdue receivables</span><b class="${ar.totals.total > ar.totals.current ? 'err' : ''}">${$(ar.totals.total - ar.totals.current)}</b></div>
+    <div><span class="mut">Open payables (A/P)</span><b>${$(ap.totals.total)}</b></div>
+    <div><span class="mut">Overdue payables</span><b class="${ap.totals.total > ap.totals.current ? 'err' : ''}">${$(ap.totals.total - ap.totals.current)}</b></div>
+  </div>
+  ${agingSection('Accounts Receivable Aging', 'Customer', 'invoices', ar)}
+  ${agingSection('Accounts Payable Aging', 'Vendor', 'bills', ap)}`);
+}
+
+function reconcilePage(q) {
+  const banks = accounts(`type IN ('asset','liability') AND code NOT IN ('${B.AR}','${B.AP}','${B.TAX}')`);
+  const acctId = +q.get('account') || banks[0].id, stmtDate = B.isDate(q.get('statement_date') || day());
+  const st = B.reconciliationState(db, acctId, stmtDate);
+  const expected = st.beginning + st.uncleared.reduce((s, l) => s + l.amount, 0);
+  const endInput = q.get('ending') ?? (expected / 100).toFixed(2);
+  return page('Reconcile', h`<p class="intro">Match your ledger against your bank or credit card statement so cleared balances agree to the cent.</p>
+  ${q.get('done') ? h`<p class="notice ok">Statement reconciled and locked.</p>` : ''}
+  <form class="row noprint"><label>Account<select name="account">${opts(banks, acctLabel, acctId)}</select></label>
+  <label>Statement date<input type="date" name="statement_date" value="${stmtDate}"></label><button>Load</button></form>
+  <div class="cards">
+    <div><span class="mut">Reconciled beginning balance</span><b id="rec-beg">${$(st.beginning)}</b></div>
+    <div><span class="mut">Cleared balance</span><b id="rec-clr">${$(expected)}</b></div>
+    <div><span class="mut">Difference</span><b id="rec-diff" class="ok">$0.00</b></div>
+  </div>
+  ${st.uncleared.length ? h`<form method="post" action="/reconcile" id="rec-form">
+    <input type="hidden" name="account" value="${acctId}"><input type="hidden" name="statement_date" value="${stmtDate}">
+    <div class="row"><label>Statement ending balance<input name="ending" id="rec-end" inputmode="decimal" value="${endInput}" required></label>
+    <button>Finish reconciliation</button></div>
+    <table><tr><th><input type="checkbox" id="rec-all" class="inline" checked title="Toggle all">Clear</th><th>Date</th><th>Memo</th><th class="n">Increase</th><th class="n">Decrease</th></tr>
+    ${st.uncleared.map(l => h`<tr><td><input type="checkbox" name="line" value="${l.id}" class="inline" data-amt="${l.amount}" checked></td>
+      <td>${l.date}</td><td>${l.memo || '—'}</td><td class="n">${l.amount > 0 ? $(l.amount) : ''}</td><td class="n">${l.amount < 0 ? $(Math.abs(l.amount)) : ''}</td></tr>`)}</table>
+  </form>
+  <script>
+  const beg = ${new Raw(String(st.beginning))}, fmtC = c => (c < 0 ? '-$' : '$') + (Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const parseC = v => { v = String(v || '').trim(); const neg = v.startsWith('-'); return (neg ? -1 : 1) * (Math.round(parseFloat(v.replace(/[^0-9.]/g, '')) * 100) || 0); };
+  const boxes = [...document.querySelectorAll('#rec-form [data-amt]')], endEl = document.getElementById('rec-end'), clrEl = document.getElementById('rec-clr'), diffEl = document.getElementById('rec-diff'), allEl = document.getElementById('rec-all');
+  const sync = () => {
+    const clr = beg + boxes.reduce((s, b) => s + (b.checked ? +b.dataset.amt : 0), 0), diff = parseC(endEl.value) - clr;
+    clrEl.textContent = fmtC(clr); diffEl.textContent = fmtC(diff); diffEl.className = diff === 0 ? 'ok' : 'err';
+  };
+  document.getElementById('rec-form').addEventListener('input', e => { if (e.target === allEl) boxes.forEach(b => { b.checked = allEl.checked; }); sync(); });
+  sync();
+  </script>` : h`<p class="mut">No unreconciled transactions on or before ${stmtDate}.</p>`}
+  <h2>Past reconciliations</h2>
+  <table><tr><th>Statement date</th><th class="n">Ending balance</th><th class="n">Cleared items</th><th>Reconciled on</th></tr>
+  ${st.history.map(r => h`<tr><td>${r.statement_date}</td><td class="n">${$(r.ending_balance)}</td><td class="n">${r.count}</td><td>${r.created_at}</td></tr>`)}
+  ${empty(st.history, 4)}</table>`);
+}
+
+function runwayPage(q) {
+  const asOf = B.isDate(q.get('as_of') || day()), taxStr = q.get('tax_rate') ?? '25';
+  const oneTime = B.parseMoney(q.get('one_time') || ''), monthly = B.parseMoney(q.get('monthly') || '');
+  const r = B.cashRunway(db, { asOf, taxRate: B.parseRate(taxStr), oneTime, monthly });
+  const sc = r.scenario, fmtMo = m => m === null ? '∞ (no burn)' : `${m.toFixed(1)} mo`;
+  const verdicts = {
+    safe: ['ok', 'Comfortable — keeps at least 3 months of operating burn in safe-to-spend cash.'],
+    caution: ['mut', 'Tight buffer — stays positive, but leaves less than 3 months of operating burn.'],
+    shortfall: ['err', 'Shortfall — this spend dips into money reserved for taxes or unpaid bills.'],
+  };
+  const [vClass, vText] = verdicts[sc.verdict];
+  return page('Safe-to-Spend & Cash Runway', h`<p class="eyebrow">Beyond QuickBooks · Decision intelligence</p>
+  <p class="intro">Your bank balance is not what you can safely spend. OpenBooks sets aside collected sales tax, estimated income tax on year-to-date profit, and unpaid vendor bills so you see your true spendable cash and can test purchases or hires before committing.</p>
+  <div class="cards">
+    <div><span class="mut">Liquid bank cash</span><b>${$(r.liquid_cash)}</b></div>
+    <div><span class="mut">Tax & bill reserves</span><b>${$(r.reserved)}</b></div>
+    <div><span class="mut">True safe-to-spend</span><b id="sts-top" class="${r.safe_to_spend < 0 ? 'err' : 'ok'}">${$(r.safe_to_spend)}</b></div>
+    <div><span class="mut">Operating runway</span><b>${fmtMo(r.runway_months)}</b><span class="mut">${ fmtMo(r.expected_runway_months)} with open A/R</span></div>
+  </div>
+  <h2>Safe-to-spend breakdown</h2>
+  <table>
+    <tr><td>Liquid bank cash (Checking & Savings)</td><td class="n">${$(r.liquid_cash)}</td></tr>
+    <tr><td>Less: Sales tax payable (${B.TAX})</td><td class="n">−${$(r.sales_tax_owed)}</td></tr>
+    <tr><td>Less: Est. income tax reserve (<span id="lbl-rate">${B.fmtRate(r.taxRate)}</span> of ${$(r.ytd_net)} YTD net income)</td><td class="n" id="val-tax">−${$(r.income_tax_reserve)}</td></tr>
+    <tr><td>Less: Unpaid vendor bills (${B.AP} A/P)</td><td class="n">−${$(r.open_ap)}</td></tr>
+    <tr class="tot"><td>True safe-to-spend cash today</td><td class="n" id="val-sts">${$(r.safe_to_spend)}</td></tr>
+    <tr><td>Plus: Open customer invoices (${B.AR} A/R)</td><td class="n">+${$(r.open_ar)}</td></tr>
+    <tr class="tot"><td>Expected cash position after collections</td><td class="n" id="val-exp">${$(r.safe_to_spend + r.open_ar)}</td></tr>
+  </table>
+  <div class="panel"><p class="eyebrow">What-if simulator</p><h2>Can I afford this purchase or hire?</h2>
+  <form class="row noprint" id="sim-form"><label>One-time spend ($)<input name="one_time" id="sim-one" inputmode="decimal" value="${oneTime ? (oneTime / 100).toFixed(2) : ''}" placeholder="0.00"></label>
+  <label>New monthly cost ($/mo)<input name="monthly" id="sim-mo" inputmode="decimal" value="${monthly ? (monthly / 100).toFixed(2) : ''}" placeholder="0.00"></label>
+  <label>Income tax reserve (%)<input name="tax_rate" id="sim-tax" inputmode="decimal" value="${taxStr}"></label>
+  <label>As of<input type="date" name="as_of" value="${asOf}"></label><button>Simulate</button></form>
+  <table><tr><th>Metric</th><th class="n">Current</th><th class="n">After decision</th></tr>
+    <tr><td>Safe-to-spend cash</td><td class="n" id="cur-sts">${$(r.safe_to_spend)}</td><td class="n" id="aft-sts">${$(sc.after_safe_to_spend)}</td></tr>
+    <tr><td>Monthly operating burn (90d trailing)</td><td class="n">${$(r.monthly_burn)}/mo</td><td class="n" id="aft-burn">${$(sc.after_burn)}/mo</td></tr>
+    <tr><td>Conservative runway (cash on hand)</td><td class="n" id="cur-run">${fmtMo(r.runway_months)}</td><td class="n" id="aft-run">${fmtMo(sc.after_runway_months)}</td></tr>
+    <tr><td>Expected runway (with open A/R)</td><td class="n" id="cur-exprun">${fmtMo(r.expected_runway_months)}</td><td class="n" id="aft-exprun">${fmtMo(sc.after_expected_runway_months)}</td></tr>
+  </table>
+  <p class="notice ${vClass}" id="sim-verdict">${vText}</p></div>
+  <script>
+  (() => {
+    const S = ${new Raw(JSON.stringify({ cash: r.liquid_cash, salesTax: r.sales_tax_owed, ytdNet: r.ytd_net, ap: r.open_ap, ar: r.open_ar, burn: r.monthly_burn }))};
+    const fmtC = c => (c < 0 ? '-$' : '$') + (Math.abs(c) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtM = m => m === null ? '∞ (no burn)' : m.toFixed(1) + ' mo';
+    const cents = v => Math.max(0, Math.round((parseFloat(String(v || '').replace(/[$,]/g, '')) || 0) * 100));
+    const el = id => document.getElementById(id);
+    el('sim-form').addEventListener('input', () => {
+      const rate = Math.min(100, Math.max(0, parseFloat(el('sim-tax').value) || 0)), one = cents(el('sim-one').value), mo = cents(el('sim-mo').value);
+      const incTax = S.ytdNet > 0 ? Math.round(S.ytdNet * rate / 100) : 0, sts = S.cash - S.salesTax - incTax - S.ap;
+      const aftSts = sts - one - mo, aftBurn = S.burn + mo, run = (p, b) => b > 0 ? Math.max(0, p) / b : null;
+      el('lbl-rate').textContent = rate + '%'; el('val-tax').textContent = '−' + fmtC(incTax);
+      el('sts-top').textContent = el('val-sts').textContent = el('cur-sts').textContent = fmtC(sts);
+      el('val-exp').textContent = fmtC(sts + S.ar); el('aft-sts').textContent = fmtC(aftSts); el('aft-burn').textContent = fmtC(aftBurn) + '/mo';
+      el('cur-run').textContent = fmtM(run(sts, S.burn)); el('cur-exprun').textContent = fmtM(run(sts + S.ar, S.burn));
+      el('aft-run').textContent = fmtM(run(sts - one, aftBurn)); el('aft-exprun').textContent = fmtM(run(sts + S.ar - one, aftBurn));
+      const v = el('sim-verdict');
+      if (aftSts < 0) { v.className = 'notice err'; v.textContent = 'Shortfall — this spend dips into money reserved for taxes or unpaid bills.'; }
+      else if (aftBurn > 0 && aftSts < aftBurn * 3) { v.className = 'notice mut'; v.textContent = 'Tight buffer — stays positive, but leaves less than 3 months of operating burn.'; }
+      else { v.className = 'notice ok'; v.textContent = 'Comfortable — keeps at least 3 months of operating burn in safe-to-spend cash.'; }
+    });
+  })();
+  </script>
+  <h2>Customer payment velocity</h2>
+  <p class="mut">Payment-weighted average days from invoice date to payment date across recorded payments.</p>
+  <table><tr><th>Customer</th><th class="n">Payments</th><th class="n">Avg. time to pay</th><th class="n">Open balance</th></tr>
+  ${r.velocity.map(c => h`<tr><td>${c.contact}</td><td class="n">${c.payments}</td><td class="n">${c.avg_days} days</td><td class="n">${$(c.open_balance)}</td></tr>`)}
+  ${empty(r.velocity, 4)}</table>`);
+}
+
 function taxPage(q) {
   const [from, to] = period(q), rows = B.taxReport(db, from, to);
   const rates = db.prepare('SELECT * FROM tax_rates ORDER BY name').all();
@@ -259,7 +401,7 @@ function importPreview(f) {
   const rows = contacts.map(c => { const key = c.name.toLowerCase(); const skip = seen.has(key) || !!existing.get(kind, c.name); seen.add(key); return { ...c, skip }; });
   return page('Review QuickBooks import', h`<p class="intro">${contacts.length} ${kind} records found. Review the names before importing.</p>
   <p class="notice">Only names and email addresses will be imported. Existing or repeated names are skipped.</p>
-  <table><tr><th>Name</th><th>Email</th><th>Action</th></tr>${rows.map(c => h`<tr><td>${c.name}</td><td>${c.email || '?'}</td><td>${c.skip ? 'Skip' : 'Import'}</td></tr>`)}</table>
+  <table><tr><th>Name</th><th>Email</th><th>Action</th></tr>${rows.map(c => h`<tr><td>${c.name}</td><td>${c.email || '—'}</td><td>${c.skip ? 'Skip' : 'Import'}</td></tr>`)}</table>
   <form method="post" action="/import/confirm"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="csv" value="${f.get('csv')}">
   <p class="row"><button>Import contacts</button><a href="/import">Cancel</a></p></form>`);
 }
@@ -378,6 +520,14 @@ async function route(req, url) {
   if (p === '/') return home();
   if (p === '/reports/pl') return plPage(url.searchParams);
   if (p === '/reports/bs') return bsPage(url.searchParams);
+  if (p === '/reports/aging') return agingPage(q);
+  if (p === '/runway') return runwayPage(q);
+  if (p === '/reconcile') {
+    if (!f) return reconcilePage(q);
+    const acctId = +f.get('account'), stmtDate = f.get('statement_date');
+    B.reconcile(db, { account_id: acctId, statement_date: stmtDate, ending_balance: B.parseSignedMoney(f.get('ending')), line_ids: f.getAll('line') });
+    return { redirect: `/reconcile?account=${acctId}&statement_date=${encodeURIComponent(stmtDate)}&done=1` };
+  }
   if (p === '/contacts') {
     if (!f) return contactsPage();
     const name = f.get('name')?.trim(), kind = f.get('kind');

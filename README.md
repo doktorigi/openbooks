@@ -12,6 +12,9 @@ Open-source small-business bookkeeping for the web — a QuickBooks alternative 
   - one deposit can be split across several invoices (e.g. a Stripe payout), with any difference such as fees posted to an account
   - anything else gets a category, suggested from past transactions with the same description
 - Customers & vendors, editable chart of accounts, manual journal entries
+- **Bank & credit card reconciliation**: clear ledger transactions against statement ending dates and balances (`$0.00` difference required), locking reconciled lines and carrying the reconciled beginning balance forward
+- **A/R & A/P Aging reports**: historical as-of aging of unpaid customer invoices and vendor bills across Current, 1–30, 31–60, 61–90, and 90+ days past due
+- **Safe-to-Spend & What-If Runway Simulator** *(beyond QuickBooks)*: deducts collected sales tax, estimated income tax reserve on YTD profit, and unpaid vendor bills from liquid cash, measures customer payment velocity (average days-to-pay), and simulates one-time purchases or new monthly recurring costs against operating runway
 - **QuickBooks contact import**: review customer or vendor CSV exports before importing names and email addresses
 - Profit & Loss and Balance Sheet for any period
 - **Logins**: multiple users, scrypt-hashed passwords, 30-day sessions, sign-in lockout after 5 failures

@@ -51,6 +51,10 @@ B.matchBankTxn(db, txn('ACH CREDIT HARBOR COFFEE CO'), inv1);
 B.matchBankTxn(db, txn('MAPLE PINE ARCHITECTS DEP'), inv2);
 B.matchBankTxn(db, txn('GARDEN STATE POWER AUTOPAY'), bill2);
 B.postBankTxn(db, txn('ADOBE CREATIVE CLOUD'), acct('6300')); // so next month's charge gets a suggestion
+const recState = B.reconciliationState(db, acct('1000'), day(-30));
+B.reconcile(db, { account_id: acct('1000'), statement_date: day(-30),
+  ending_balance: recState.beginning + recState.uncleared.reduce((s, l) => s + l.amount, 0),
+  line_ids: recState.uncleared.map(l => l.id) });
 B.createUser(db, 'demo', 'demo-password-not-used');
 db.close();
 
