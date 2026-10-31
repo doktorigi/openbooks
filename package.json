@@ -1,0 +1,9 @@
+{
+  "name": "openbooks",
+  "version": "0.1.0",
+  "description": "Open-source small-business bookkeeping for the web. Zero dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.13" },
+  "scripts": { "start": "node --no-warnings server.js", "test": "node --no-warnings --test" }
+}
