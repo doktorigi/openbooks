@@ -193,6 +193,14 @@ function bankPage(q) {
   const txns = db.prepare(`SELECT b.*, a.name AS bank FROM bank_txns b JOIN accounts a ON a.id = b.account_id
     WHERE status = 'new' ORDER BY date, b.id`).all();
   const cats = accounts(), imported = q.get('imported');
+  const open = { invoice: B.openDocs(db, 'invoice'), bill: B.openDocs(db, 'bill') };
+  const docOpts = t => {
+    const kind = t.amount > 0 ? 'invoice' : 'bill', list = open[kind];
+    if (!list.length) return { html: '' };
+    const exact = list.find(d => d.total - d.paid === Math.abs(t.amount));
+    return { exact, html: h`<optgroup label="Payment for open ${kind}">${list.map(d => h`<option value="doc_${d.id}"${new Raw(d === exact ? ' selected' : '')}>
+      ${d.number || '#' + d.id} · ${d.contact} · ${$(d.total - d.paid)} due</option>`)}</optgroup>` };
+  };
   return page('Bank', h`${imported !== null ? h`<p class="ok">Imported ${+imported} new transaction${+imported === 1 ? '' : 's'}.</p>` : ''}
   <form method="post" action="/bank/import" id="imp" class="noprint"><h2>Import a CSV statement</h2><div class="row">
   <label>Account<select name="account">${opts(banks, acctLabel)}</select></label>
@@ -204,10 +212,10 @@ function bankPage(q) {
   <h2>To review (${txns.length})</h2>
   ${txns.length ? h`<form method="post" action="/bank/review"><table>
     <tr><th>Date</th><th>Description</th><th>Account</th><th class="n">Amount</th><th>Category</th></tr>
-    ${txns.map(t => h`<tr><td>${t.date}</td><td>${t.description}</td><td>${t.bank}</td><td class="n">${$(t.amount)}</td>
+    ${txns.map(t => { const d = docOpts(t); return h`<tr><td>${t.date}</td><td>${t.description}</td><td>${t.bank}</td><td class="n">${$(t.amount)}</td>
       <td><select name="cat_${t.id}"><option value="">Decide later</option><option value="ignore">Ignore (already recorded)</option>
-      ${opts(cats, acctLabel, B.suggestCategory(db, t))}</select></td></tr>`)}</table>
-    <button>Post categorized</button> <span class="mut">Categories are pre-filled from the last match on the same description.</span></form>`
+      ${d.html}<optgroup label="Category">${opts(cats, acctLabel, d.exact ? undefined : B.suggestCategory(db, t))}</optgroup></select></td></tr>`; })}</table>
+    <button>Post</button> <span class="mut">Pre-filled with an open invoice/bill of the exact amount, else the category used last time for that description.</span></form>`
   : h`<p class="mut">Nothing to review.</p>`}`);
 }
 
@@ -293,7 +301,11 @@ async function route(req, url) {
   }
   if (p === '/bank/review' && f) {
     B.tx(db, () => {
-      for (const [k, v] of f) if (k.startsWith('cat_') && v) B.postBankTxn(db, +k.slice(4), v === 'ignore' ? v : +v);
+      for (const [k, v] of f) {
+        if (!k.startsWith('cat_') || !v) continue;
+        if (v.startsWith('doc_')) B.matchBankTxn(db, +k.slice(4), +v.slice(4));
+        else B.postBankTxn(db, +k.slice(4), v === 'ignore' ? v : +v);
+      }
     });
     return { redirect: '/bank' };
   }

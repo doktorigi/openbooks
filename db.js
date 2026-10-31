@@ -18,10 +18,9 @@ const SEED = [
 
 export const bad = msg => Object.assign(new Error(msg), { status: 400 });
 
-export function open(file = ':memory:') {
-  const db = new DatabaseSync(file);
-  db.exec(`
-PRAGMA foreign_keys = ON;
+// Append-only: never edit a shipped migration, add a new one. PRAGMA user_version = how many have run.
+// #1 uses IF NOT EXISTS because books from v0.1 already have these tables at user_version 0.
+export const MIGRATIONS = [`
 CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('asset','liability','equity','income','expense')));
 CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT,
@@ -46,7 +45,21 @@ CREATE TABLE IF NOT EXISTS bank_txns (id INTEGER PRIMARY KEY, account_id INTEGER
 CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, pw TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users,
   expires INTEGER NOT NULL);
-`);
+`, `
+CREATE INDEX lines_entry ON lines (entry_id);
+CREATE INDEX lines_account ON lines (account_id);
+CREATE INDEX doc_lines_doc ON doc_lines (doc_id);
+CREATE INDEX payments_doc ON payments (doc_id);
+CREATE INDEX payments_entry ON payments (entry_id);
+CREATE INDEX bank_txns_status ON bank_txns (status, date);
+`];
+
+export function open(file = ':memory:') {
+  const db = new DatabaseSync(file);
+  db.exec('PRAGMA foreign_keys = ON');
+  const at = db.prepare('PRAGMA user_version').get().user_version;
+  if (at > MIGRATIONS.length) throw new Error(`${file} is from a newer OpenBooks (schema ${at}); upgrade the app`);
+  MIGRATIONS.slice(at).forEach((sql, i) => tx(db, () => { db.exec(sql); db.exec(`PRAGMA user_version = ${at + i + 1}`); }));
   // OR IGNORE: also fills in accounts added to SEED after a book was created.
   const ins = db.prepare('INSERT OR IGNORE INTO accounts (code, name, type) VALUES (?, ?, ?)');
   tx(db, () => SEED.forEach(a => ins.run(...a)));
@@ -153,6 +166,7 @@ export function pay(db, doc_id, { date, amount, account_id }) {
     const entry = post(db, date, `Payment · ${d.kind} ${d.number || d.id} · ${d.contact}`,
       [side(inv, account_id, amount), side(!inv, accountId(db, inv ? AR : AP), amount)]);
     db.prepare('INSERT INTO payments (doc_id, date, amount, entry_id) VALUES (?, ?, ?, ?)').run(doc_id, date, amount, entry);
+    return entry;
   });
 }
 
@@ -170,7 +184,7 @@ export function balances(db, from = '0000-01-01', to = '9999-12-31') {
   return db.prepare(`SELECT a.*, COALESCE(s.bal, 0) AS bal FROM accounts a LEFT JOIN (
       SELECT l.account_id, SUM(l.debit - l.credit) AS bal FROM lines l JOIN entries e ON e.id = l.entry_id
       WHERE e.date BETWEEN ? AND ? GROUP BY l.account_id) s ON s.account_id = a.id ORDER BY a.code`)
-    .all(from, to).map(a => ({ ...a, amount: DEBIT_NORMAL.has(a.type) ? a.bal : -a.bal }));
+    .all(from, to).map(a => ({ ...a, amount: DEBIT_NORMAL.has(a.type) ? a.bal : 0 - a.bal }));
 }
 
 export function profitLoss(db, from, to) {
@@ -266,6 +280,19 @@ export function postBankTxn(db, id, category) {
     db.prepare("UPDATE bank_txns SET status = 'posted', entry_id = ? WHERE id = ?").run(entry, id);
   });
 }
+
+// A deposit pays an open invoice, a withdrawal pays an open bill; the payment's entry is the txn's entry.
+export function matchBankTxn(db, id, doc_id) {
+  const t = db.prepare("SELECT * FROM bank_txns WHERE id = ? AND status = 'new'").get(id);
+  if (!t) throw bad('That transaction was already handled');
+  if (doc(db, doc_id)?.kind !== (t.amount > 0 ? 'invoice' : 'bill')) throw bad('Deposits match invoices; withdrawals match bills');
+  tx(db, () => {
+    const entry = pay(db, doc_id, { date: t.date, amount: Math.abs(t.amount), account_id: t.account_id });
+    db.prepare("UPDATE bank_txns SET status = 'posted', entry_id = ? WHERE id = ?").run(entry, id);
+  });
+}
+
+export const openDocs = (db, kind) => docs(db, kind).filter(d => d.paid < d.total).reverse(); // oldest first
 
 // Category last used for the same description, as a suggestion.
 export const suggestCategory = (db, t) => db.prepare(`SELECT l.account_id FROM bank_txns b

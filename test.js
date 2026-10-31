@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as B from './db.js';
 
 test('books stay balanced through invoices, bills and payments', () => {
@@ -98,6 +102,47 @@ test('users and sessions', () => {
   const s2 = B.newSession(db, uid).token;
   B.endSession(db, s2);
   assert.equal(B.sessionUser(db, s2), undefined);
+});
+
+test('migrations upgrade a v0.1 book in place', () => {
+  const file = join(mkdtempSync(join(tmpdir(), 'ob-')), 'books.db');
+  const old = new DatabaseSync(file); // v0.1 created this schema but never set user_version
+  old.exec(B.MIGRATIONS[0]);
+  old.exec("INSERT INTO contacts (name, kind) VALUES ('Kept', 'customer')");
+  old.close();
+  const db = B.open(file);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, B.MIGRATIONS.length);
+  assert.equal(db.prepare('SELECT name FROM contacts').get().name, 'Kept');
+  assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'lines_entry'").get());
+  db.close();
+  B.open(file).close(); // reopening runs nothing
+  const newer = new DatabaseSync(file); newer.exec('PRAGMA user_version = 999'); newer.close();
+  assert.throws(() => B.open(file), /newer OpenBooks/);
+});
+
+test('bank deposits pay invoices, withdrawals pay bills', () => {
+  const db = B.open();
+  const [bank, sales, rent] = ['1000', '4000', '6000'].map(c => B.accountId(db, c));
+  const contact = kind => db.prepare('INSERT INTO contacts (name, kind) VALUES (?, ?)').run(kind, kind).lastInsertRowid;
+  const inv = B.createDoc(db, { kind: 'invoice', contact_id: contact('customer'), date: '2026-10-01', lines: [{ account_id: sales, amount: 30000 }] });
+  const bill = B.createDoc(db, { kind: 'bill', contact_id: contact('vendor'), date: '2026-10-01', lines: [{ account_id: rent, amount: 9000 }] });
+  B.importBank(db, bank, B.parseBankCSV('Date,Description,Amount\n2026-10-05,Deposit,100.00\n2026-10-06,Deposit 2,200.00\n2026-10-07,Rent,-90\n2026-10-08,Deposit 3,1'));
+  const [d1, d2, w, d3] = db.prepare('SELECT * FROM bank_txns ORDER BY id').all();
+
+  assert.throws(() => B.matchBankTxn(db, w.id, inv), /withdrawals match bills/);
+  B.matchBankTxn(db, d1.id, inv); // partial
+  assert.equal(B.openDocs(db, 'invoice')[0].paid, 10000);
+  B.matchBankTxn(db, d2.id, inv);
+  B.matchBankTxn(db, w.id, bill);
+  assert.deepEqual([B.openDocs(db, 'invoice').length, B.openDocs(db, 'bill').length], [0, 0]);
+  assert.throws(() => B.matchBankTxn(db, d3.id, inv), /between/); // invoice already fully paid
+  assert.equal(db.prepare("SELECT status FROM bank_txns WHERE id = ?").get(d3.id).status, 'new');
+  assert.throws(() => B.matchBankTxn(db, d1.id, inv), /already/);
+
+  const bal = code => B.balances(db).find(a => a.code === code).amount;
+  assert.deepEqual([bal('1000'), bal(B.AR), bal(B.AP)], [21000, 0, 0]);
+  // the bank txn and the invoice payment share one journal entry, so nothing is double-counted
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM payments p JOIN bank_txns b ON b.entry_id = p.entry_id').get().n, 3);
 });
 
 test('money parsing', () => {
