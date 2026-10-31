@@ -210,3 +210,21 @@ test('money parsing', () => {
   assert.throws(() => B.parseMoney('-5'));
   assert.equal(B.fmt(-123450), '-$1,234.50');
 });
+
+
+test('QuickBooks contacts are reviewed and imported without duplicates or ledger changes', () => {
+  const db = B.open();
+  const csv = '\uFEFFDisplay Name,Email,Balance\r\n"Acme, Inc.",ap@example.com,42.00\r\nACME,ignored@example.com,0\r\n"Acme, Inc.",duplicate@example.com,0';
+  const contacts = B.parseQuickBooksContacts(csv);
+  assert.deepEqual(contacts[0], { name: 'Acme, Inc.', email: 'ap@example.com' });
+  assert.deepEqual(B.importQuickBooksContacts(db, 'customer', contacts), { added: 2, skipped: 1 });
+  assert.deepEqual(B.importQuickBooksContacts(db, 'customer', contacts), { added: 0, skipped: 3 });
+  assert.deepEqual(B.importQuickBooksContacts(db, 'vendor', [contacts[0]]), { added: 1, skipped: 0 });
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM entries').get().n, 0);
+  assert.throws(() => B.parseQuickBooksContacts('Name\n\"unfinished'), /unterminated/);
+  assert.throws(() => B.parseQuickBooksContacts('Date,Amount\n2026-01-01,2'), /Name column/);
+  assert.throws(() => B.parseQuickBooksContacts('Name,Email\n,a@example.com'), /missing a name/);
+  assert.throws(() => B.importQuickBooksContacts(db, 'other', contacts), /customers or vendors/);
+  assert.throws(() => B.importQuickBooksContacts(db, 'customer', [{ name: 'New' }, { name: '' }]), /required/);
+  assert.equal(db.prepare("SELECT COUNT(*) n FROM contacts WHERE name = 'New'").get().n, 0);
+});

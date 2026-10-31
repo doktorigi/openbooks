@@ -220,8 +220,41 @@ export function parseCSV(text) {
     else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
     else f += c;
   }
+  if (q) throw bad('CSV contains an unterminated quoted field');
   if (f || row.length) { row.push(f); rows.push(row); }
   return rows.filter(r => r.some(v => v.trim()));
+}
+
+// QuickBooks customer/vendor CSV exports. Only contact names and email addresses
+// are imported; balances and other fields are deliberately not posted to the ledger.
+export function parseQuickBooksContacts(text) {
+  const [head, ...rows] = parseCSV(String(text ?? '').replace(/^\uFEFF/, ''));
+  if (!head) throw bad('The file is empty');
+  const norm = s => String(s ?? '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const col = names => head.findIndex(h => names.includes(norm(h)));
+  const name = col(['displayname', 'namedisplayname', 'customerdisplayname', 'vendordisplayname', 'supplierdisplayname', 'customer', 'vendor', 'supplier', 'name']);
+  const email = col(['email', 'emailaddress', 'primaryemail']);
+  if (name < 0) throw bad('Expected a Display Name or Name column in the QuickBooks contact CSV');
+  if (!rows.length) throw bad('The CSV has no contacts');
+  return rows.map((r, i) => {
+    const n = (r[name] ?? '').trim();
+    if (!n) throw bad(`Row ${i + 2} is missing a name`);
+    return { name: n, email: (r[email] ?? '').trim() || null };
+  });
+}
+
+export function importQuickBooksContacts(db, kind, contacts) {
+  if (!['customer', 'vendor'].includes(kind)) throw bad('Choose customers or vendors');
+  return tx(db, () => {
+    const exists = db.prepare('SELECT 1 FROM contacts WHERE kind = ? AND name = ? COLLATE NOCASE');
+    const insert = db.prepare('INSERT INTO contacts (name, email, kind) VALUES (?, ?, ?)');
+    let added = 0;
+    for (const c of contacts) {
+      if (!c.name?.trim()) throw bad('Contact name is required');
+      if (!exists.get(kind, c.name.trim())) { insert.run(c.name.trim(), c.email || null, kind); added++; }
+    }
+    return { added, skipped: contacts.length - added };
+  });
 }
 
 // ponytail: slashed dates are read as US M/D/Y; add a format picker for DD/MM banks.

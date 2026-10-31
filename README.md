@@ -12,6 +12,7 @@ Open-source small-business bookkeeping for the web — a QuickBooks alternative 
   - one deposit can be split across several invoices (e.g. a Stripe payout), with any difference such as fees posted to an account
   - anything else gets a category, suggested from past transactions with the same description
 - Customers & vendors, editable chart of accounts, manual journal entries
+- **QuickBooks contact import**: review customer or vendor CSV exports before importing names and email addresses
 - Profit & Loss and Balance Sheet for any period
 - **Logins**: multiple users, scrypt-hashed passwords, 30-day sessions, sign-in lockout after 5 failures
 - SQLite file storage (`books.db`), light/dark UI
@@ -40,6 +41,12 @@ Put it behind a TLS reverse proxy (Caddy, nginx) and back up `books.db`.
 Needs a header row with a **Date** column and either an **Amount** column or **Debit**/**Credit** columns;
 the description comes from a Description/Memo/Payee/Name column. Dates may be `YYYY-MM-DD` or US `M/D/YYYY`.
 Positive = money in. Tick "purchases are positive" for credit-card files that use the opposite sign.
+
+## QuickBooks import
+
+Export a customer or vendor list from QuickBooks as CSV, then open **Import** and select the matching contact type. The CSV needs a `Display Name` or `Name` column; an `Email` column is optional. Choose the file or paste its contents, review the results, and confirm. Names already present for that contact type, including repeated names in the file, are skipped without updating existing contacts. Customer and vendor names are matched separately.
+
+Only names and email addresses are imported. Other fields, accounts, balances, invoices, bills, and payments are not imported. Native QuickBooks company and backup files (.QBW/.QBB) and .QBO files are not supported by this contact importer. For transaction CSVs, use Bank import and review each transaction. Back up your books before importing and check the results.
 
 ## Upgrades
 

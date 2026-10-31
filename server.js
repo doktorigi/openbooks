@@ -13,27 +13,18 @@ const esc = v => v instanceof Raw ? v.s : Array.isArray(v) ? v.map(esc).join('')
 const h = (s, ...v) => new Raw(s.reduce((o, str, i) => o + esc(v[i - 1]) + str));
 
 const CSS = `
-:root{--bg:#f7f7f5;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--line:#e3e3de;--acc:#2a7d4f;--err:#b3261e}
-@media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#ececea;--mut:#9a9a94;--card:#1f1f1d;--line:#33332f;--acc:#5cc28a;--err:#f2867e}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
-nav{display:flex;flex-wrap:wrap;gap:4px 16px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line)}
-nav b{color:var(--acc);margin-right:8px}a{color:var(--acc)}nav a{text-decoration:none}
-main{max-width:960px;margin:0 auto;padding:16px}h1{font-size:24px;margin:8px 0 16px}h2{font-size:17px;margin:24px 0 8px}
-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);margin:8px 0}
-th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--mut);font-weight:500}
-.n{text-align:right;font-variant-numeric:tabular-nums}.tot td{font-weight:600}.hd th{color:var(--fg);padding-top:14px}
-input.inline{width:auto;margin-right:6px}textarea{display:block;margin-top:4px}
-input,select,button,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);width:100%}
-td input,td select{border-color:transparent}button,.btn{width:auto;background:var(--acc);color:#fff;border:0;padding:8px 14px;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block}
-.row{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:8px 0}.row label{flex:1 1 160px;color:var(--mut);font-size:13px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.cards div{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
-.cards b{display:block;font-size:22px}.out{margin:0 0 0 auto}button.link{background:none;color:var(--acc);padding:0}
-.split{display:block;font-size:13px;margin-bottom:4px}.narrow{max-width:380px}.narrow label{display:block;color:var(--mut);font-size:13px;margin-bottom:12px}.err{color:var(--err)}.mut{color:var(--mut)}.ok{color:var(--acc)}
-@media print{nav,.noprint{display:none}body{background:#fff;color:#000}}`;
+:root{--bg:#f4f6f3;--fg:#172b25;--mut:#697d73;--card:#fff;--line:#dfe8e1;--acc:#167353;--err:#b3261e;--shadow:0 8px 30px rgba(27,62,45,.05)}
+@media (prefers-color-scheme:dark){:root{--bg:#101b17;--fg:#e8f2eb;--mut:#9baea3;--card:#192822;--line:#30443a;--acc:#62c99b;--err:#f2867e;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,sans-serif}a{color:var(--acc);text-underline-offset:3px}nav{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:14px max(24px,calc((100% - 1200px)/2));background:var(--card);border-bottom:1px solid var(--line)}nav b{font-size:19px;letter-spacing:-.7px;color:var(--fg);margin-right:25px}nav b:before{content:'?';display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#167353;color:white;margin-right:9px}nav a{padding:7px 9px;color:var(--mut);font-size:13px;font-weight:600;text-decoration:none;border-radius:7px}nav a:hover,nav a:focus-visible{background:var(--bg);color:var(--acc)}
+main{max-width:1200px;margin:0 auto;padding:38px 24px 80px}h1{font-size:32px;letter-spacing:-1.2px;line-height:1.2;margin:0 0 24px}h2{font-size:18px;letter-spacing:-.3px;margin:32px 0 12px}p{line-height:1.6}table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 0;box-shadow:var(--shadow)}th,td{padding:13px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}tr:last-child td,tr:last-child th{border-bottom:0}th{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:650}.n{text-align:right;font-variant-numeric:tabular-nums}.tot td{font-weight:700}.hd th{color:var(--fg);padding-top:18px}
+input.inline{width:auto;margin-right:6px}textarea{display:block;margin-top:5px}input,select,button,textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);width:100%}input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:1px}td input,td select{border-color:var(--line)}button,.btn{width:auto;background:#167353;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-block;font-weight:650}button:hover,.btn:hover{background:#105a40}.row{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:12px 0}.row label{flex:1 1 160px;color:var(--mut);font-size:13px;font-weight:600}.row label input,.row label select{margin-top:5px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.cards div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow)}.cards b{display:block;font-size:28px;letter-spacing:-1px;margin-top:10px}.out{margin:0 0 0 auto}button.link{background:none;color:var(--acc);padding:8px}.split{display:block;font-size:13px;margin-bottom:4px}.narrow{max-width:440px;margin:70px auto;padding:32px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.narrow label{display:block;color:var(--mut);font-size:13px;margin-bottom:16px}.narrow input{margin-top:5px}.err{color:var(--err)}.mut{color:var(--mut)}.ok{color:var(--acc)}.intro{max-width:720px;color:var(--mut);margin-top:-12px}.panel{padding:22px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin:18px 0}.panel h2{margin-top:0}.eyebrow{color:var(--acc);text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;margin-bottom:8px}.notice{background:var(--bg);border-left:3px solid var(--acc);padding:12px 16px;border-radius:4px}
+@media(max-width:700px){nav{padding:12px 16px}nav b{width:100%;margin-bottom:4px}nav a{padding:5px 7px}main{padding:26px 16px 60px}h1{font-size:27px}table{display:block;overflow-x:auto}th,td{padding:10px;min-width:90px}.out{margin-left:0}.narrow{margin:30px 16px}}
+@media print{nav,.noprint{display:none}body{background:#fff;color:#000}main{padding:0}table{box-shadow:none}}
+`;
 
 const NAV = [['/', 'Overview'], ['/invoices', 'Invoices'], ['/bills', 'Bills'], ['/bank', 'Bank'], ['/contacts', 'Contacts'],
   ['/accounts', 'Accounts'], ['/journal', 'Journal'], ['/reports/pl', 'Profit & Loss'], ['/reports/bs', 'Balance Sheet'],
-  ['/tax', 'Sales tax'], ['/settings', 'Settings']];
+  ['/tax', 'Sales tax'], ['/import', 'Import'], ['/settings', 'Settings']];
 const page = (title, body, bare = false) => h`<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · OpenBooks</title><style>${new Raw(CSS)}</style>
 <nav><b>OpenBooks</b>${bare ? '' : h`${NAV.map(([u, t]) => h`<a href="${u}">${t}</a>`)}
@@ -50,7 +41,7 @@ function home() {
   const y = day().slice(0, 4), pl = B.profitLoss(db, `${y}-01-01`, day());
   const open = k => B.docs(db, k).reduce((s, d) => s + d.total - d.paid, 0);
   const cash = B.balances(db).filter(a => a.type === 'asset' && a.code !== B.AR && a.code < '1500');
-  return page('Overview', h`<div class="cards">
+  return page('Overview', h`<p class="eyebrow">Your business at a glance</p><p class="intro">A clear view of your books, all in one place.</p><div class="cards">
   <div><span class="mut">Unpaid invoices</span><b>${$(open('invoice'))}</b></div>
   <div><span class="mut">Unpaid bills</span><b>${$(open('bill'))}</b></div>
   <div><span class="mut">Net income ${y} to date</span><b>${$(pl.net)}</b></div></div>
@@ -246,6 +237,33 @@ function splitPage(id) {
   </script>`);
 }
 
+function importPage(q) {
+  return page('Import from QuickBooks', h`<p class="intro">Bring your customer and vendor contacts into OpenBooks in a few steps.</p>
+  ${q.has('added') ? h`<p class="notice ok">Imported ${+q.get('added')} contacts; skipped ${+q.get('skipped')} existing or repeated names.</p>` : ''}
+  <div class="panel"><p class="eyebrow">QuickBooks CSV</p><h2>Import contacts</h2>
+  <p>Export your customer or vendor list from QuickBooks as a CSV, then choose the matching type below. The file needs a <b>Display Name</b> or <b>Name</b> column; Email is optional.</p>
+  <p class="mut">Names and email addresses are imported. Existing names of the same type are skipped, including duplicates in the file. Other fields and balances are not imported.</p>
+  <form method="post" action="/import/preview" id="qb-import"><div class="row"><label>Contact type<select name="kind"><option value="customer">Customers</option><option value="vendor">Vendors / suppliers</option></select></label>
+  <label>QuickBooks CSV file<input type="file" id="qb-file" accept=".csv,text/csv"></label></div>
+  <label class="mut">Or paste CSV contents<textarea name="csv" rows="6" required placeholder="Display Name,Email"></textarea></label>
+  <p><button>Review import</button></p></form></div>
+  <div class="panel"><h2>Looking for transactions?</h2><p>Use <a href="/bank">Bank import</a> for a transaction CSV. This contact import does not migrate invoices, bills, accounts, balances, or QuickBooks company files (.QBW, .QBB, or .QBO).</p></div>
+  <script>document.getElementById('qb-file').addEventListener('change', async e => { if(e.target.files[0]) document.querySelector('#qb-import textarea').value = await e.target.files[0].text(); });</script>`);
+}
+function importPreview(f) {
+  const kind = f.get('kind');
+  if (!['customer', 'vendor'].includes(kind)) throw B.bad('Choose customers or vendors');
+  const contacts = B.parseQuickBooksContacts(f.get('csv'));
+  const existing = db.prepare('SELECT 1 FROM contacts WHERE kind = ? AND name = ? COLLATE NOCASE');
+  const seen = new Set();
+  const rows = contacts.map(c => { const key = c.name.toLowerCase(); const skip = seen.has(key) || !!existing.get(kind, c.name); seen.add(key); return { ...c, skip }; });
+  return page('Review QuickBooks import', h`<p class="intro">${contacts.length} ${kind} records found. Review the names before importing.</p>
+  <p class="notice">Only names and email addresses will be imported. Existing or repeated names are skipped.</p>
+  <table><tr><th>Name</th><th>Email</th><th>Action</th></tr>${rows.map(c => h`<tr><td>${c.name}</td><td>${c.email || '?'}</td><td>${c.skip ? 'Skip' : 'Import'}</td></tr>`)}</table>
+  <form method="post" action="/import/confirm"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="csv" value="${f.get('csv')}">
+  <p class="row"><button>Import contacts</button><a href="/import">Cancel</a></p></form>`);
+}
+
 const MSG = { password: 'Password changed.', user: 'User added.' };
 function settingsPage(user, q) {
   const users = db.prepare('SELECT username FROM users ORDER BY username').all();
@@ -311,6 +329,13 @@ async function route(req, url) {
   }
   if (!user) return { redirect: '/login' };
   if (p === '/logout' && f) { B.endSession(db, token); return { redirect: '/login', session: null }; }
+
+  if (p === '/import' && !f) return importPage(q);
+  if (p === '/import/preview' && f) return importPreview(f);
+  if (p === '/import/confirm' && f) {
+    const result = B.importQuickBooksContacts(db, f.get('kind'), B.parseQuickBooksContacts(f.get('csv')));
+    return { redirect: `/import?added=${result.added}&skipped=${result.skipped}` };
+  }
 
   if (p === '/settings') return settingsPage(user, q);
   if (p === '/settings/password' && f) {
