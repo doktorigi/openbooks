@@ -55,6 +55,11 @@ const recState = B.reconciliationState(db, acct('1000'), day(-30));
 B.reconcile(db, { account_id: acct('1000'), statement_date: day(-30),
   ending_balance: recState.beginning + recState.uncleared.reduce((s, l) => s + l.amount, 0),
   line_ids: recState.uncleared.map(l => l.id) });
+B.setCompany(db, { name: 'Juniper Design Studio', address: '18 Broadway, Suite 4\nFair Lawn, NJ 07410',
+  email: 'hello@juniper.example', phone: '(201) 555-0148' });
+const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="10" fill="#3d6b4f"/>
+<path d="M25 9v14a7 7 0 0 1-14 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="29" cy="10" r="3.2" fill="#b8d8a8"/></svg>`;
+B.setLogo(db, 'data:image/svg+xml;base64,' + Buffer.from(LOGO).toString('base64'));
 B.createUser(db, 'demo', 'demo-password-not-used');
 db.close();
 
@@ -74,6 +79,7 @@ const NO_FORMS = `<script>document.addEventListener('submit', e => { e.preventDe
 alert('This is a read-only demo. Install OpenBooks to try it for real.'); }, true);</script>`;
 const fix = html => html
   .replace(/(href|action)="\/([^"?#]*)"/g, (_, a, p) => `${a}="${BASE}${p ? p + '/' : ''}"`)
+  .replace(/src="\/logo\?v=\d+"/g, `src="${BASE}logo.svg"`)
   .replace('</nav>', '</nav>' + BANNER).replace('</main>', '</main>' + NO_FORMS);
 
 const seen = new Set(['/']), queue = ['/'];
@@ -86,5 +92,6 @@ while (queue.length) {
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'index.html'), fix(html));
 }
+writeFileSync(join(out, 'logo.svg'), Buffer.from(await (await fetch(origin + '/logo')).arrayBuffer()));
 console.log(`demo: ${seen.size} pages → ${out}`);
 process.exit(0);

@@ -57,6 +57,8 @@ CREATE TABLE reconciliations (id INTEGER PRIMARY KEY, account_id INTEGER NOT NUL
   statement_date TEXT NOT NULL, ending_balance INTEGER NOT NULL, created_at TEXT NOT NULL);
 ALTER TABLE lines ADD COLUMN reconciliation_id INTEGER REFERENCES reconciliations;
 CREATE INDEX lines_reconcile ON lines (account_id, reconciliation_id);
+`, `
+CREATE TABLE settings (key TEXT PRIMARY KEY, value);
 `];
 
 export function open(file = ':memory:') {
@@ -561,3 +563,56 @@ export function newSession(db, user_id) {
 export const sessionUser = (db, token) => token ? db.prepare(`SELECT u.id, u.username FROM sessions s
   JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires > ?`).get(sha(token), Date.now()) : undefined;
 export const endSession = (db, token) => { if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha(token)); };
+
+// --- Company profile & logo ---
+
+const setting = (db, key) => db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value ?? null;
+const setSetting = (db, key, value) => value === null
+  ? db.prepare('DELETE FROM settings WHERE key = ?').run(key)
+  : db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value').run(key, value);
+
+const COMPANY = { name: 100, address: 300, email: 120, phone: 40 }; // field → max length
+
+export function company(db) {
+  const c = Object.fromEntries(Object.keys(COMPANY).map(k => [k, setting(db, 'company_' + k) ?? '']));
+  return { ...c, logo_version: setting(db, 'logo_version') };
+}
+
+export function setCompany(db, fields) {
+  tx(db, () => {
+    for (const [k, max] of Object.entries(COMPANY)) {
+      const v = String(fields[k] ?? '').replace(/\r\n?/g, '\n').trim();
+      if (v.length > max) throw bad(`Company ${k} must be at most ${max} characters`);
+      setSetting(db, 'company_' + k, v || null);
+    }
+  });
+}
+
+// Checked by file signature, not just the declared type. SVG is served sandboxed (see /logo in server.js).
+const LOGO_TYPES = {
+  'image/png': b => b.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+  'image/jpeg': b => b[0] === 0xff && b[1] === 0xd8,
+  'image/gif': b => b.toString('latin1', 0, 4) === 'GIF8',
+  'image/webp': b => b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP',
+  'image/svg+xml': b => /<svg[\s>]/i.test(b.toString('utf8', 0, 4096)),
+};
+export const MAX_LOGO = 1024 * 1024;
+
+// dataUrl: "data:image/png;base64,…", or null to remove the logo.
+export function setLogo(db, dataUrl) {
+  tx(db, () => {
+    if (!dataUrl) { ['logo', 'logo_type', 'logo_version'].forEach(k => setSetting(db, k, null)); return; }
+    const m = /^data:([\w/+.-]+);base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(dataUrl));
+    const data = m && Buffer.from(m[2], 'base64');
+    if (!m || !LOGO_TYPES[m[1]]?.(data)) throw bad('The logo must be a PNG, JPEG, GIF, WebP or SVG image');
+    if (data.length > MAX_LOGO) throw bad('The logo must be smaller than 1 MB');
+    setSetting(db, 'logo', data);
+    setSetting(db, 'logo_type', m[1]);
+    setSetting(db, 'logo_version', String(Date.now()));
+  });
+}
+
+export function logo(db) {
+  const data = setting(db, 'logo');
+  return data && { data: Buffer.from(data), type: setting(db, 'logo_type') };
+}

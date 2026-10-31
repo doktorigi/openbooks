@@ -203,6 +203,32 @@ test('bank suggestions prefer the customer named in the description', () => {
   assert.equal(B.suggestDoc(t('ACME PMT', 4001), open, left), undefined);
 });
 
+test('company profile and logo', () => {
+  const db = B.open();
+  assert.deepEqual(B.company(db), { name: '', address: '', email: '', phone: '', logo_version: null });
+  B.setCompany(db, { name: '  Juniper Design  ', address: '12 Elm St\r\nFair Lawn, NJ', email: 'hi@juniper.example' });
+  assert.equal(B.company(db).name, 'Juniper Design');
+  assert.equal(B.company(db).address, '12 Elm St\nFair Lawn, NJ');
+  assert.throws(() => B.setCompany(db, { name: 'x'.repeat(101) }), /at most 100/);
+  assert.equal(B.company(db).name, 'Juniper Design'); // failed save changed nothing
+
+  const url = (type, bytes) => `data:${type};base64,${Buffer.from(bytes).toString('base64')}`;
+  const png = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0];
+  B.setLogo(db, url('image/png', png));
+  assert.deepEqual([...B.logo(db).data], png);
+  assert.equal(B.logo(db).type, 'image/png');
+  assert.ok(B.company(db).logo_version);
+  assert.throws(() => B.setLogo(db, url('image/png', 'GIF89a')), /must be a PNG/);       // signature must match the type
+  assert.throws(() => B.setLogo(db, url('text/html', '<svg></svg>')), /must be a PNG/);
+  assert.throws(() => B.setLogo(db, 'not a data url'), /must be a PNG/);
+  assert.throws(() => B.setLogo(db, url('image/png', [...png, ...new Array(B.MAX_LOGO)])), /1 MB/);
+  B.setLogo(db, url('image/svg+xml', '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"/>'));
+  assert.equal(B.logo(db).type, 'image/svg+xml');
+  B.setLogo(db, null);
+  assert.equal(B.logo(db), null);
+  assert.equal(B.company(db).logo_version, null);
+});
+
 test('money parsing', () => {
   assert.equal(B.parseMoney('$1,234.5'), 123450);
   assert.equal(B.parseMoney(''), 0);

@@ -18,19 +18,27 @@ const CSS = `
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,sans-serif}a{color:var(--acc);text-underline-offset:3px}nav{display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:14px max(24px,calc((100% - 1200px)/2));background:var(--card);border-bottom:1px solid var(--line)}nav b{font-size:19px;letter-spacing:-.7px;color:var(--fg);margin-right:25px}nav b:before{content:'OB';font-size:13px;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#167353;color:white;margin-right:9px}nav a{padding:7px 9px;color:var(--mut);font-size:13px;font-weight:600;text-decoration:none;border-radius:7px}nav a:hover,nav a:focus-visible{background:var(--bg);color:var(--acc)}
 main{max-width:1200px;margin:0 auto;padding:38px 24px 80px}h1{font-size:32px;letter-spacing:-1.2px;line-height:1.2;margin:0 0 24px}h2{font-size:18px;letter-spacing:-.3px;margin:32px 0 12px}p{line-height:1.6}table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:12px;margin:12px 0;box-shadow:var(--shadow)}th,td{padding:13px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}tr:last-child td,tr:last-child th{border-bottom:0}th{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em;font-weight:650}.n{text-align:right;font-variant-numeric:tabular-nums}.tot td{font-weight:700}.hd th{color:var(--fg);padding-top:18px}
 input.inline{width:auto;margin-right:6px}textarea{display:block;margin-top:5px}input,select,button,textarea{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);width:100%}input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:1px}td input,td select{border-color:var(--line)}button,.btn{width:auto;background:#167353;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-block;font-weight:650}button:hover,.btn:hover{background:#105a40}.row{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:12px 0}.row label{flex:1 1 160px;color:var(--mut);font-size:13px;font-weight:600}.row label input,.row label select{margin-top:5px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.cards div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:var(--shadow)}.cards b{display:block;font-size:28px;letter-spacing:-1px;margin-top:10px}.out{margin:0 0 0 auto}button.link{background:none;color:var(--acc);padding:8px}.split{display:block;font-size:13px;margin-bottom:4px}.narrow{max-width:440px;margin:70px auto;padding:32px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}.narrow label{display:block;color:var(--mut);font-size:13px;margin-bottom:16px}.narrow input{margin-top:5px}.err{color:var(--err)}.mut{color:var(--mut)}.ok{color:var(--acc)}.intro{max-width:720px;color:var(--mut);margin-top:-12px}.panel{padding:22px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);margin:18px 0}.panel h2{margin-top:0}.eyebrow{color:var(--acc);text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;margin-bottom:8px}.notice{background:var(--bg);border-left:3px solid var(--acc);padding:12px 16px;border-radius:4px}
+.brand-logo{height:34px;max-width:140px;object-fit:contain;margin-right:10px}nav b.has-logo:before{display:none}
+.letterhead{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;padding:24px;margin-bottom:20px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.letterhead .co{display:flex;gap:16px;align-items:flex-start}.doc-logo{max-height:72px;max-width:200px;object-fit:contain}.letterhead .meta{text-align:right}
+.logo-preview{max-height:64px;max-width:200px;object-fit:contain;display:block;margin:6px 0;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px}
 @media(max-width:700px){nav{padding:12px 16px}nav b{width:100%;margin-bottom:4px}nav a{padding:5px 7px}main{padding:26px 16px 60px}h1{font-size:27px}table{display:block;overflow-x:auto}th,td{padding:10px;min-width:90px}.out{margin-left:0}.narrow{margin:30px 16px}}
-@media print{nav,.noprint{display:none}body{background:#fff;color:#000}main{padding:0}table{box-shadow:none}}
+@media print{nav,.noprint{display:none}body{background:#fff;color:#000}main{padding:0}table{box-shadow:none}.letterhead{border:0;padding:0 0 16px;border-bottom:2px solid #000;border-radius:0}}
 `;
 
 const NAV = [['/', 'Overview'], ['/invoices', 'Invoices'], ['/bills', 'Bills'], ['/bank', 'Bank'], ['/reconcile', 'Reconcile'],
   ['/contacts', 'Contacts'], ['/accounts', 'Accounts'], ['/journal', 'Journal'], ['/reports/pl', 'Profit & Loss'],
   ['/reports/bs', 'Balance Sheet'], ['/reports/aging', 'Aging'], ['/runway', 'Safe to Spend'], ['/tax', 'Sales tax'],
   ['/import', 'Import'], ['/settings', 'Settings']];
-const page = (title, body, bare = false) => h`<!doctype html><html lang="en"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · OpenBooks</title><style>${new Raw(CSS)}</style>
-<nav><b>OpenBooks</b>${bare ? '' : h`${NAV.map(([u, t]) => h`<a href="${u}">${t}</a>`)}
+const logoImg = (co, cls) => co.logo_version ? h`<img src="/logo?v=${co.logo_version}" alt="${co.name || 'Company'} logo" class="${cls}">` : '';
+const page = (title, body, bare = false) => {
+  const co = B.company(db);
+  return h`<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · ${co.name || 'OpenBooks'}</title><style>${new Raw(CSS)}</style>
+<nav>${logoImg(co, 'brand-logo')}<b${new Raw(co.logo_version ? ' class="has-logo"' : '')}>${co.name || 'OpenBooks'}</b>${bare ? '' : h`${NAV.map(([u, t]) => h`<a href="${u}">${t}</a>`)}
 <form method="post" action="/logout" class="out"><button class="link">Sign out</button></form>`}</nav>
 <main${new Raw(bare ? ' class="narrow"' : '')}><h1>${title}</h1>${body}</main>`;
+};
 
 const opts = (rows, label = r => r.name, sel) => rows.map(r => h`<option value="${r.id}"${new Raw(r.id === sel ? ' selected' : '')}>${label(r)}</option>`);
 const acctLabel = a => `${a.code} ${a.name}`;
@@ -88,8 +96,14 @@ function docView(kind, base, id) {
   const pays = db.prepare('SELECT * FROM payments WHERE doc_id = ? ORDER BY date, id').all(id);
   const taxes = db.prepare(`SELECT r.name, r.rate, SUM(dl.tax) AS tax FROM doc_lines dl JOIN tax_rates r ON r.id = dl.tax_rate_id
     WHERE dl.doc_id = ? GROUP BY r.id`).all(id);
-  const bal = d.total - d.paid;
-  return page(`${inv ? 'Invoice' : 'Bill'} ${d.number || '#' + d.id}`, h`
+  const bal = d.total - d.paid, co = B.company(db), lines2br = s => s.split('\n').map((l, i) => h`${i ? h`<br>` : ''}${l}`);
+  // Invoices go out to customers, so they carry the letterhead; bills are someone else's paperwork.
+  const letterhead = inv && (co.name || co.logo_version) ? h`<div class="letterhead"><div class="co">${logoImg(co, 'doc-logo')}
+    <div>${co.name ? h`<b>${co.name}</b><br>` : ''}${co.address ? h`${lines2br(co.address)}<br>` : ''}
+    <span class="mut">${lines2br([co.email, co.phone].filter(Boolean).join('\n'))}</span></div></div>
+    <div class="meta"><div class="eyebrow">Invoice</div><b>${d.number || '#' + d.id}</b><br>${d.date}</div></div>`
+    : inv ? h`<p class="notice noprint">Add your company name and logo in <a href="/settings">Settings</a> to brand your invoices.</p>` : '';
+  return page(`${inv ? 'Invoice' : 'Bill'} ${d.number || '#' + d.id}`, h`${letterhead}
   <p><b>${inv ? 'Bill to' : 'From'}:</b> ${d.contact}${d.email ? h` · ${d.email}` : ''}<br>
   Date ${d.date}${d.due ? h` · Due ${d.due}` : ''} · <b>${status(d)}</b></p>
   <table><tr><th>Description</th><th>Account</th><th class="n">Amount</th></tr>
@@ -406,11 +420,33 @@ function importPreview(f) {
   <p class="row"><button>Import contacts</button><a href="/import">Cancel</a></p></form>`);
 }
 
-const MSG = { password: 'Password changed.', user: 'User added.' };
+const MSG = { password: 'Password changed.', user: 'User added.', company: 'Company details saved.' };
 function settingsPage(user, q) {
-  const users = db.prepare('SELECT username FROM users ORDER BY username').all();
+  const users = db.prepare('SELECT username FROM users ORDER BY username').all(), co = B.company(db);
   return page('Settings', h`${MSG[q.get('done')] ? h`<p class="ok">${MSG[q.get('done')]}</p>` : ''}
   <p>Signed in as <b>${user.username}</b>.</p>
+  <form method="post" action="/settings/company" id="co-form" class="panel"><h2>Company</h2>
+  <p class="mut">Shown in the top bar and on the invoices you send.</p>
+  <div class="row"><label>Company name<input name="name" maxlength="100" value="${co.name}"></label>
+  <label>Email<input type="email" name="email" maxlength="120" value="${co.email}"></label>
+  <label>Phone<input name="phone" maxlength="40" value="${co.phone}"></label></div>
+  <div class="row"><label>Address<textarea name="address" rows="3" maxlength="300">${co.address}</textarea></label>
+  <label>Logo (PNG, JPEG, GIF, WebP or SVG, under 1 MB)
+    <img id="logo-preview" class="logo-preview" alt=""${new Raw(co.logo_version ? ` src="/logo?v=${co.logo_version}"` : ' hidden')}>
+    <input type="file" id="logo-file" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+    ${co.logo_version ? h`<span><input type="checkbox" name="remove_logo" class="inline">Remove logo</span>` : ''}
+    <input type="hidden" name="logo"></label></div>
+  <button>Save company</button></form>
+  <script>
+  document.getElementById('logo-file').addEventListener('change', e => {
+    const f = e.target.files[0], form = document.getElementById('co-form'), pv = document.getElementById('logo-preview');
+    if (!f) return;
+    if (f.size > ${new Raw(String(B.MAX_LOGO))}) { alert('Please choose an image smaller than 1 MB.'); e.target.value = ''; return; }
+    const r = new FileReader();
+    r.onload = () => { form.logo.value = pv.src = r.result; pv.hidden = false; };
+    r.readAsDataURL(f);
+  });
+  </script>
   <form method="post" action="/settings/password"><h2>Change password</h2><div class="row">
   <label>Current password<input type="password" name="current" required autocomplete="current-password"></label>
   <label>New password<input type="password" name="pw" minlength="10" required autocomplete="new-password"></label>
@@ -454,6 +490,9 @@ async function route(req, url) {
   const user = B.sessionUser(db, token), ip = req.socket.remoteAddress;
   let m;
 
+  // Public on purpose: the sign-in page shows the company brand too.
+  if (p === '/logo') return { file: B.logo(db) };
+
   if (p === '/setup') {
     if (B.hasUsers(db)) return { redirect: '/' };
     if (!f) return page('Create your login', h`<p class="mut">First run: create the owner login for these books.</p>
@@ -485,6 +524,14 @@ async function route(req, url) {
     if (!B.checkPassword(db, user.username, f.get('current'))) { failed(ip); throw B.bad('Current password is wrong'); }
     B.setPassword(db, user.id, f.get('pw'));
     return { redirect: '/settings?done=password', session: B.newSession(db, user.id) };
+  }
+  if (p === '/settings/company' && f) {
+    B.tx(db, () => {
+      B.setCompany(db, Object.fromEntries(f));
+      if (f.get('logo')) B.setLogo(db, f.get('logo'));
+      else if (f.has('remove_logo')) B.setLogo(db, null);
+    });
+    return { redirect: '/settings?done=company' };
   }
   if (p === '/settings/users' && f) { B.createUser(db, f.get('username'), f.get('pw')); return { redirect: '/settings?done=user' }; }
 
@@ -583,6 +630,13 @@ http.createServer(async (req, res) => {
     const origin = req.headers.origin;
     if (req.method === 'POST' && origin && !sameHost(origin, req.headers.host)) throw Object.assign(new Error('Cross-site request blocked'), { status: 403 });
     const out = await route(req, new URL(req.url, 'http://local'));
+    if (out && 'file' in out) {
+      if (!out.file) { res.writeHead(404).end(); return; }
+      // URLs carry ?v=<upload time>, so they can be cached forever. The CSP sandbox keeps a hostile SVG inert.
+      res.writeHead(200, { 'content-type': out.file.type, 'cache-control': 'public, max-age=31536000, immutable',
+        'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox" });
+      return res.end(out.file.data);
+    }
     if (out && 'session' in out) {
       const secure = req.headers['x-forwarded-proto'] === 'https' || process.env.SECURE_COOKIES ? '; Secure' : '';
       res.setHeader('set-cookie', `ob_session=${out.session?.token ?? ''}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${out.session?.maxAge ?? 0}${secure}`);

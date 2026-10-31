@@ -18,14 +18,31 @@ Open-source small-business bookkeeping for the web — a QuickBooks alternative 
 - **QuickBooks contact import**: review customer or vendor CSV exports before importing names and email addresses
 - Profit & Loss and Balance Sheet for any period
 - **Logins**: multiple users, scrypt-hashed passwords, 30-day sessions, sign-in lockout after 5 failures
+- **Your brand**: company name, address and logo in the app and on the invoices you send
 - SQLite file storage (`books.db`), light/dark UI
+
+## Install
+
+**Windows** (PowerShell; installs Node.js via winget if needed and adds a desktop shortcut):
+
+```powershell
+irm https://github.com/doktorigi/openbooks/releases/latest/download/install.ps1 | iex
+```
+
+**macOS / Linux** (needs Node.js 22.13+):
+
+```sh
+curl -fsSL https://github.com/doktorigi/openbooks/releases/latest/download/install.sh | sh
+```
+
+Run the same command again to upgrade; your books are kept. Or from source:
 
 ```sh
 npm start        # http://localhost:3000   (Node 22.13+)
 npm test
 ```
 
-On first visit you create the owner login.
+On first visit you create the owner login. Add your company name and logo under **Settings**.
 
 | Env var | Default | |
 |---|---|---|
