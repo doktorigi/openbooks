@@ -2,6 +2,8 @@
 
 Open-source small-business bookkeeping for the web — a QuickBooks alternative with zero dependencies.
 
+**[Live demo](https://doktorigi.github.io/openbooks/)** (read-only snapshot with sample data, rebuilt on every push)
+
 - Double-entry ledger: every transaction is a balanced journal entry; money stored as integer cents
 - Invoices & bills with partial payments, A/R and A/P posted automatically; print any invoice to PDF
 - **Sales tax**: per-line tax rates on invoices, posted to Sales Tax Payable, with a period report

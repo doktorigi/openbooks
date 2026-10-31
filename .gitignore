@@ -1,2 +1,4 @@
 books.db*
 node_modules/
+demo-site/
+_site/
