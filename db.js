@@ -317,6 +317,25 @@ export const matchBankTxn = (db, id, doc_id) => splitBankTxn(db, id, [{ doc_id,
 
 export const openDocs = (db, kind) => docs(db, kind).filter(d => d.paid < d.total).reverse(); // oldest first
 
+// Does a bank description name this contact? "ACH CREDIT ACME CORPORAT" matches "Acme Corporation, Inc.".
+// ponytail: token prefix match, no fuzzy scoring; add edit distance if banks mangle names worse than truncation.
+const STOP = new Set(['inc', 'llc', 'ltd', 'co', 'corp', 'corporation', 'company', 'the', 'and', 'of', 'llp', 'plc', 'pllc', 'lp']);
+const words = s => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+export function nameMatches(name, description) {
+  const n = words(name).filter(w => !STOP.has(w) && w.length > 1), d = words(description);
+  if (!n.length || n.join('').length < 3) return false;
+  if (d.join('').includes(n.join(''))) return true; // "ACMEWIDGETS" for "Acme Widgets"
+  return n.every(t => d.some(w => w.startsWith(t) || (w.length >= 4 && t.startsWith(w))));
+}
+
+// Best open document for a bank txn. `left` tracks balances already claimed by earlier suggestions on the page.
+export function suggestDoc(t, open, left = new Map()) {
+  const amt = Math.abs(t.amount), due = d => left.get(d.id) ?? d.total - d.paid;
+  const named = open.filter(d => nameMatches(d.contact, t.description));
+  if (named.length) return named.find(d => due(d) === amt) ?? named.find(d => amt < due(d));
+  return open.find(d => due(d) === amt);
+}
+
 // Category last used for the same description, as a suggestion.
 export const suggestCategory = (db, t) => db.prepare(`SELECT l.account_id FROM bank_txns b
   JOIN lines l ON l.entry_id = b.entry_id AND l.account_id <> b.account_id

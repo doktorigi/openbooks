@@ -194,10 +194,12 @@ function bankPage(q) {
     WHERE status = 'new' ORDER BY date, b.id`).all();
   const cats = accounts(), imported = q.get('imported');
   const open = { invoice: B.openDocs(db, 'invoice'), bill: B.openDocs(db, 'bill') };
+  const left = new Map();
   const docOpts = t => {
     const kind = t.amount > 0 ? 'invoice' : 'bill', list = open[kind];
     if (!list.length) return { html: '' };
-    const exact = list.find(d => d.total - d.paid === Math.abs(t.amount));
+    const exact = B.suggestDoc(t, list, left);
+    if (exact) left.set(exact.id, (left.get(exact.id) ?? exact.total - exact.paid) - Math.abs(t.amount));
     return { exact, html: h`<optgroup label="Payment for open ${kind}">${list.map(d => h`<option value="doc_${d.id}"${new Raw(d === exact ? ' selected' : '')}>
       ${d.number || '#' + d.id} · ${d.contact} · ${$(d.total - d.paid)} due</option>`)}</optgroup>` };
   };
@@ -215,14 +217,16 @@ function bankPage(q) {
     ${txns.map(t => { const d = docOpts(t); return h`<tr><td>${t.date}</td><td>${t.description}</td><td>${t.bank}</td><td class="n">${$(t.amount)}</td>
       <td>${d.html ? h`<a href="/bank/${t.id}/split" class="split">Split across ${t.amount > 0 ? 'invoices' : 'bills'}…</a>` : ''}<select name="cat_${t.id}"><option value="">Decide later</option><option value="ignore">Ignore (already recorded)</option>
       ${d.html}<optgroup label="Category">${opts(cats, acctLabel, d.exact ? undefined : B.suggestCategory(db, t))}</optgroup></select></td></tr>`; })}</table>
-    <button>Post</button> <span class="mut">Pre-filled with an open invoice/bill of the exact amount, else the category used last time for that description.</span></form>`
+    <button>Post</button> <span class="mut">Pre-filled with an open invoice/bill from the customer or vendor named in the description
+    (or of the exact amount), else the category used last time for that description.</span></form>`
   : h`<p class="mut">Nothing to review.</p>`}`);
 }
 
 function splitPage(id) {
   const t = db.prepare("SELECT b.*, a.name AS bank FROM bank_txns b JOIN accounts a ON a.id = b.account_id WHERE b.id = ? AND status = 'new'").get(id);
   if (!t) return;
-  const inv = t.amount > 0, kind = inv ? 'invoice' : 'bill', list = B.openDocs(db, kind);
+  const inv = t.amount > 0, kind = inv ? 'invoice' : 'bill';
+  const list = B.openDocs(db, kind).sort((x, y) => B.nameMatches(y.contact, t.description) - B.nameMatches(x.contact, t.description));
   return page(`Split ${inv ? 'deposit' : 'withdrawal'}`, h`<p>${t.date} · ${t.description} · ${t.bank} · <b>${$(t.amount)}</b></p>
   <form method="post" id="split"><table><tr><th>${inv ? 'Invoice' : 'Bill'}</th><th>${inv ? 'Customer' : 'Vendor'}</th>
     <th>Date</th><th class="n">Due</th><th class="n">Apply</th></tr>

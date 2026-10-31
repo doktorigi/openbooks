@@ -177,6 +177,32 @@ test('one deposit split across invoices, with a processor fee', () => {
   assert.equal(bs.totals.asset, bs.totals.liability + bs.totals.equity);
 });
 
+test('bank suggestions prefer the customer named in the description', () => {
+  const m = B.nameMatches;
+  assert.ok(m('Acme Corporation, Inc.', 'ACH CREDIT ACME CORPORAT PPD'));
+  assert.ok(m('Acme Widgets LLC', 'DEPOSIT ACMEWIDGETS 8812'));
+  assert.ok(m('Café Rouge', 'ZELLE FROM CAFE ROUGE'));
+  assert.ok(m('Smith & Sons', 'Mobile deposit - smith sons'));
+  assert.ok(!m('Acme Widgets', 'ACME PAYROLL'));       // every name word must appear
+  assert.ok(!m('The Co', 'THE COMPANY STORE'));         // nothing left after stopwords
+  assert.ok(!m('Al', 'TOTAL DEPOSIT'));                  // too short to trust
+
+  const doc = (id, contact, due) => ({ id, contact, total: due, paid: 0 });
+  const open = [doc(1, 'Bob Ltd', 5000), doc(2, 'Acme', 5000), doc(3, 'Acme', 9000)];
+  const t = (description, amount) => ({ description, amount });
+  assert.equal(B.suggestDoc(t('ACME PMT', 5000), open).id, 2);      // name + exact beats the older exact for Bob
+  assert.equal(B.suggestDoc(t('ACME PMT', 4000), open).id, 2);      // name, partial: oldest that fits
+  assert.equal(B.suggestDoc(t('ACME PMT', 20000), open), undefined); // named but fits nothing → leave it for a split
+  assert.equal(B.suggestDoc(t('DEPOSIT', 5000), open).id, 1);       // no name → exact amount, oldest
+  assert.equal(B.suggestDoc(t('DEPOSIT', 4000), open), undefined);
+  // two Acme deposits on one page don't both claim invoice 2
+  const left = new Map([[2, 0]]);
+  assert.equal(B.suggestDoc(t('ACME PMT', 5000), open, left).id, 3); // 2 is used up → partial on 3
+  left.set(3, 4000);
+  assert.equal(B.suggestDoc(t('ACME PMT', 4000), open, left).id, 3); // exact on what's left of 3
+  assert.equal(B.suggestDoc(t('ACME PMT', 4001), open, left), undefined);
+});
+
 test('money parsing', () => {
   assert.equal(B.parseMoney('$1,234.5'), 123450);
   assert.equal(B.parseMoney(''), 0);
